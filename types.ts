@@ -48,5 +48,9 @@ export interface MatchingScenario {
   sourceQuote: string;
   clue: string;
   socraticQuestion: string;
-  options?: number[]; // Added to support limited choice sets
+  options?: number[];
+  nudge?: {
+    title: string;
+    content: string;
+  };
 }

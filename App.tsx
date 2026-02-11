@@ -171,6 +171,7 @@ const RiskDetectiveMatching: React.FC<{ role: UserRole; onComplete: () => void }
   const [showFeedback, setShowFeedback] = useState(false);
   const [isClueOpen, setIsClueOpen] = useState(false);
   const [clueViewed, setClueViewed] = useState(false);
+  const [nudgeExpanded, setNudgeExpanded] = useState(false);
 
   const scenario = shuffledScenarios[currentIdx];
   const isCorrect = selectedRuleId === scenario?.correctRuleId;
@@ -192,6 +193,7 @@ const RiskDetectiveMatching: React.FC<{ role: UserRole; onComplete: () => void }
       setSelectedRuleId(null);
       setShowFeedback(false);
       setClueViewed(false);
+      setNudgeExpanded(false);
     } else {
       onComplete();
     }
@@ -213,7 +215,6 @@ const RiskDetectiveMatching: React.FC<{ role: UserRole; onComplete: () => void }
     </div>
   );
 
-  // Filter rules based on scenario options if provided, otherwise show all
   const availableRules = scenario.options 
     ? GOLDEN_RULES.filter(r => scenario.options?.includes(r.id))
     : GOLDEN_RULES;
@@ -294,19 +295,69 @@ const RiskDetectiveMatching: React.FC<{ role: UserRole; onComplete: () => void }
               <p className="text-lg leading-relaxed font-medium mb-2">
                 {isCorrect ? scenario.explanation : getSocraticHint(selectedRuleId!)}
               </p>
-              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">
                 Källa: Att använda AI i Göteborgs Stad
               </div>
             </div>
 
             {isCorrect && (
-              <div className="space-y-6">
-                <div className="bg-white/70 p-5 rounded-xl border border-green-100">
+              <div className="space-y-4">
+                <div className="bg-white/70 p-5 rounded-xl border border-green-100 shadow-sm">
                    <p className="text-xs font-black text-green-700 uppercase tracking-widest mb-2">Reflektionsfråga (Sokratisk)</p>
                    <p className="text-xl font-bold text-green-900 leading-snug italic">
                      "{scenario.socraticQuestion}"
                    </p>
                 </div>
+              </div>
+            )}
+
+            {scenario.nudge && (
+              <div className="mt-4 pt-4 border-t border-black/5">
+                <button 
+                  onClick={() => setNudgeExpanded(!nudgeExpanded)}
+                  className={`flex items-center gap-2 font-bold text-sm px-4 py-2 rounded-full transition-all border ${
+                    isCorrect 
+                      ? 'bg-blue-100/50 text-[#004b89] border-blue-200/30 hover:bg-blue-200/50' 
+                      : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
+                  }`}
+                >
+                  <i className={`fa-solid ${nudgeExpanded ? 'fa-chevron-up' : scenario.nudge.title.includes('🔍') ? 'fa-magnifying-glass' : 'fa-lightbulb'} ${isCorrect ? 'text-blue-500' : 'text-slate-400'}`}></i>
+                  {nudgeExpanded ? 'Stäng förklaring' : scenario.nudge.title}
+                </button>
+                
+                {nudgeExpanded && (
+                  <div className="mt-4 p-6 bg-blue-50 rounded-2xl border border-blue-200 text-slate-800 animate-in fade-in slide-in-from-top-2 duration-300 shadow-inner">
+                    <div className="prose prose-sm max-w-none">
+                      {scenario.nudge.content.split('\n\n').map((paragraph, pIdx) => (
+                        <div key={pIdx} className="mb-4 last:mb-0">
+                          {paragraph.startsWith('Exemplet:') ? (
+                            <p className="text-sm leading-relaxed">
+                              <span className="font-bold text-[#004b89] block mb-1">Exemplet:</span>
+                              {paragraph.split(':').slice(1).join(':').trim()}
+                            </p>
+                          ) : paragraph.startsWith('Kärnproblemet:') ? (
+                            <p className="text-sm leading-relaxed">
+                              <span className="font-bold text-slate-800 block mb-1">Kärnproblemet:</span>
+                              {paragraph.split(':').slice(1).join(':').trim()}
+                            </p>
+                          ) : paragraph.startsWith('Kom ihåg:') ? (
+                            <p className="text-sm leading-relaxed mt-4 border-t border-blue-200 pt-2 font-medium">
+                              <span className="font-bold text-slate-900 block">Kom ihåg:</span>
+                              {paragraph.split(':').slice(1).join(':').trim()}
+                            </p>
+                          ) : paragraph.startsWith('Kärnbudskap:') ? (
+                            <div className="mt-4 bg-white p-4 rounded-xl border border-blue-200 shadow-sm text-center italic text-[#004b89] font-bold">
+                              <i className="fa-solid fa-star mr-2 text-amber-400"></i>
+                              {paragraph.split(':').slice(1).join(':').trim()}
+                            </div>
+                          ) : (
+                            <p className="text-sm leading-relaxed">{paragraph}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
