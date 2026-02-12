@@ -1,12 +1,21 @@
 
 import { GoogleGenAI } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+// Ensure we don't crash if process is somehow not defined yet, though shim is in index.html
+const getApiKey = () => {
+  try {
+    return process.env.API_KEY || '';
+  } catch (e) {
+    return '';
+  }
+};
 
 export const getReflectionFeedback = async (reflection: string, role: string) => {
-  if (!process.env.API_KEY) return "Anslutningsfel: API-nyckel saknas för feedback.";
+  const apiKey = getApiKey();
+  if (!apiKey) return "Anslutningsfel: API-nyckel saknas för feedback.";
   
   try {
+    const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `Som en Sokratisk coach för AI-etik i Göteborgs Stad, ge feedback på denna reflektion från en ${role}: "${reflection}".
