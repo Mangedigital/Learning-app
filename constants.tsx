@@ -89,7 +89,7 @@ export const MATCHING_SCENARIOS: MatchingScenario[] = [
     options: [1, 3, 5, 7],
     nudge: {
       title: "🔍 Vill du förstå varför?",
-      content: "AI tenderar att förenkla och kan föreslå sänkta ambitioner baserat på statistiska mönster i sin träningsdata (bias). Regel 3 (Högrisk) kräver att du som expert alltid gör den slutgiltiga bedömningen. AI får aldrig diktera den pedagogiska riktningen.\n\nKärnbudskap: Tekniken stöttar visionen, den styr den inte."
+      content: "AI tenderar att förenkla och kan föreslå sänkta ambitioner baserat på statistiska mönster i sin träningsdata (bias). Regel 3 (Högrisk) kräver att du som expert always gör den slutgiltiga bedömningen. AI får aldrig diktera den pedagogiska riktningen.\n\nKärnbudskap: Tekniken stöttar visionen, den styr den inte."
     }
   },
 
@@ -97,31 +97,76 @@ export const MATCHING_SCENARIOS: MatchingScenario[] = [
   {
     id: 'manager1',
     role: UserRole.MANAGER,
-    text: "Case 1: Ansvar för leverans. En medarbetare har använt AI för att ta fram ett beslutsunderlag som visade sig innehålla felaktiga slutsatser. Vem bär ansvaret?",
+    text: "Case 1: Underlaget till HR-ledningen\nDu ska presentera en analys av sjukfrånvaron och föreslagna åtgärder för HR-ledningen. En av dina HR-specialister har använt AI för att sammanställa statistiken och skriva utkastet till presentationen. Under mötet upptäcker en kollega att siffrorna för en stadsdel inte stämmer alls – AI:n har \"hallucinerat\" fram data som saknades.\n\nFråga: Vem bär det formella ansvaret för det felaktiga underlaget enligt stadens regler?",
     correctRuleId: 6,
-    explanation: "Korrekt. Regel 6 i dokumentet betonar uttryckligen: \"Du ansvarar alltid själv för resultatet av ditt arbete\". Som chef bär du ansvaret för den slutliga produkten oavsett framställningsmetod. [Källa: Att använda AI i Göteborgs Stad]",
+    explanation: "Regel 6: Kontrollera resultatet. Som chef bär du alltid det yttersta ansvaret för det material din enhet levererar. Regel 6 är tydlig: \"Du ansvarar alltid själv för resultatet av ditt arbete\". I rollen som chef innebär det att du ansvarar för att kvalitetssäkra det dina medarbetare producerat med AI-stöd innan det når ledningen. [Källa: Att använda AI i Göteborgs Stad]",
     sourceQuote: "Källa: Att använda AI i Göteborgs Stad",
-    clue: "Mänsklig kontroll: Betonar att du alltid ansvarar själv för resultatet av ditt arbete.",
-    socraticQuestion: "Hur säkerställer du att dina medarbetare förstår att de inte kan 'skylla' på AI:n om ett underlag blir fel?",
-    options: [1, 4, 6, 7],
+    clue: "Mänsklig kontroll: Du ansvarar alltid själv för resultatet av ditt arbete.",
+    socraticQuestion: "Hur kan du som chef bygga in rutiner för mänsklig granskning som inte hindrar innovationen på enheten?",
+    options: [1, 6, 7, 8],
     nudge: {
-      title: "💡 Vill du förstå varför?",
-      content: "Enligt stadens nio regler (Regel 6) är AI att betrakta som ett arbetsverktyg, inte en kollega. Som chef är din roll att säkerställa att enheten har rutiner för mänsklig granskning innan något publiceras eller skickas vidare.\n\nKärnbudskap: AI-stöd fråntar aldrig människan ansvaret."
+      title: "Vill du veta varför?",
+      content: "Fördjupning: Enligt styrdokumentet (Regel 6) är AI att betrakta som ett stödverktyg, inte en expert. Eftersom AI-modeller bygger på sannolikhet snarare än faktakontroll kan de skapa \"hallucinationer\" som ser korrekta ut vid en första anblick. Som chef äger du leveransen. Att ha en rutin för mänsklig faktagranskning är inte bara god förvaltningssed, det är ett krav för att säkerställa att ledningsbeslut vilar på korrekt grund.\n\nKärna: Kvalitetssäkring är en chefshantering, oavsett verktyg."
     }
   },
   {
     id: 'manager2',
     role: UserRole.MANAGER,
-    text: "Case 2: Facklig samverkan. Ni planerar att införa ett nytt AI-verktyg för schemaoptimering. De fackliga parterna undrar hur algoritmen fungerar.",
-    correctRuleId: 7,
-    explanation: "Korrekt. Dokumentet anger att transparens handlar om att \"skapa tillit och förenande\". I chefsrollen innebär detta att öppet redovisa AI-användning vid samverkan. [Källa: Att använda AI i Göteborgs Stad]",
+    text: "Case 2: Struktur för APT (Arbetsplatsträff)\nDu vill effektivisera planeringen av enhetens APT och ber en medarbetare ta fram en diskussionsstruktur kring \"framtidens kompetensförsörjning i förskolan\" med hjälp av AI. Medarbetaren matar in data från StratSys för att få en korrekt nulägesbild av förskolornas behov.\n\nFråga: Vilken regel riskerar att brytas här och vad är ditt ansvar som chef?",
+    correctRuleId: 4,
+    explanation: "Regel 4 (Sekretess) & Regel 5 (Personuppgifter). Du som chef måste sätta ramarna för vad som får matas in i AI-systemen. Behov på namngivna förskolor ska med stor försiktighet användas i publika AI-verktyg. Ditt ansvar är att skapa rutiner som skyddar känslig information. [Källa: Att använda AI i Göteborgs Stad]",
     sourceQuote: "Källa: Att använda AI i Göteborgs Stad",
-    clue: "Transparens: Handlar om att skapa tillit genom öppenhet.",
-    socraticQuestion: "Vilka risker ser du om medarbetarna upplever att schemat styrs av en 'svart låda' utan insyn?",
-    options: [5, 6, 7, 8],
+    clue: "Sekretess: Du ansvarar för att sekretessuppgifter och skyddsvärd information inte röjs.",
+    socraticQuestion: "Om medarbetaren anonymiserar namnen på förskolorna, räcker det då för att uppfylla Regel 4?",
+    options: [2, 4, 5, 8],
     nudge: {
-      title: "🔍 Vill du förstå varför?",
-      content: "Transparens (Regel 7) är avgörande för att upprätthålla tillit. Genom att vara öppen med hur verktyget fungerar, vilken data det använder och vad syftet är, minskar du oron för övervakning eller osakliga bedömningar.\n\nKärnbudskap: Öppenhet är grunden för trygg förändringsledning."
+      title: "Vill du veta varför?",
+      content: "Fördjupning: När vi använder publika AI-tjänster skickas informationen utanför stadens nätverk. Även om du anonymiserar namn kan unika händelser (indirekta personuppgifter) röjas. Regel 4 och 5 skyddar inte bara individen, utan även stadens rykte som en trygg arbetsgivare. Som chef sätter du kulturen: Vi matar aldrig in sådant vi inte skulle vilja se på en löpsedel.\n\nKärna: HR-data kräver högsta skyddsnivå; publika AI-verktyg saknar detta skydd."
+    }
+  },
+  {
+    id: 'manager3',
+    role: UserRole.MANAGER,
+    text: "Case 3: Implementering av AI-verktyg på enheten\nNågra av dina medarbetare har börjat använda ett olicensierat AI-verktyg för att transkribera exit-samtal för att spara tid. De tycker att det fungerar fantastiskt och vill att hela enheten ska börja använda det.\n\nFråga: Hur bör du som chef agera utifrån stadens styrning?",
+    correctRuleId: 2,
+    explanation: "Regel 2: Använd lämpliga AI-system. Som chef ansvarar du för att din enhet endast använder system som är anskaffade eller godkända av staden. Du behöver pausa användningen och stämma av med förvaltningens digitaliseringsenhet eller IT-avdelning för att säkerställa att verktyget uppfyller säkerhetskraven innan det blir en del av arbetsrutinen. [Källa: Att använda AI i Göteborgs Stad]",
+    sourceQuote: "Källa: Att använda AI i Göteborgs Stad",
+    clue: "Säkerhetskrav: Systemet måste uppfylla säkerhetskraven för den typ av information du hanterar.",
+    socraticQuestion: "Varför är ett personuppgiftsbiträdesavtal (PUB) så viktigt när vi transkriberar personalärenden?",
+    options: [2, 3, 6, 9],
+    nudge: {
+      title: "Vill du veta varför?",
+      content: "Fördjupning: \"Skugg-IT\" (att använda egna appar) är en stor säkerhetsrisk. Stadens Regel 2 finns för att vi ska veta var vår data hamnar och att vi har tecknat personuppgiftsbiträdesavtal (PUB). Om ett transkriberingsverktyg läcker känsliga samtal är det förvaltningen som står som ansvarig. Din roll som chef är att styra medarbetarna mot stadens godkända alternativ.\n\nKärna: Användarvänlighet får aldrig gå före rättssäkerhet och dataskydd."
+    }
+  },
+  {
+    id: 'manager4',
+    role: UserRole.MANAGER,
+    text: "Case 4: Beslutsstöd vid resursfördelning\nDu ska fördela kompetensutvecklingsmedel mellan olika områden. En utvecklingsledare har tagit fram ett prioriteringsförslag med hjälp av en AI-modell. Du förstår inte riktigt varför vissa förskolor i högindexområden har fått lägre prioritet än förväntat, men \"det ser proffsigt ut\".\n\nFråga: Vilket etiskt dilemma står du inför som chef här?",
+    correctRuleId: 1,
+    explanation: "Regel 1: Etiskt och ansvarsfullt (Förklarbarhet). Som chef får du aldrig fatta beslut baserat på AI-underlag som du inte kan förklara eller motivera mänskligt. Detta är särskilt viktigt i högindexområden (Regel 3). Du har ett ansvar att \"öppna den svarta lådan\" och kräva insyn i hur förslaget tagits fram för att undvika osaklig diskriminering. [Källa: Att använda AI i Göteborgs Stad]",
+    sourceQuote: "Källa: Att använda AI i Göteborgs Stad",
+    clue: "Etiskt och ansvarsfullt: Du ansvarar för att du använder AI på ett etiskt och ansvarsfullt sätt.",
+    socraticQuestion: "Hur säkerställer du att medarbetare vågar ifrågasätta en AI-modells 'proffsiga' förslag?",
+    options: [1, 3, 6, 7],
+    nudge: {
+      title: "Vill du veta varför?",
+      content: "Fördjupning: AI-modeller kan dölja bias (fördomar) i sin data. Om we fördelar resurser till förskolor baserat på en algoritm vi inte förstår, kan vi omedvetet förstärka ojämlikhet. Regel 1 och 3 kräver \"förklarbarhet\". Du måste kunna svara en upprörd rektor varför ett beslut fattades. Kan inte AI:n förklara det, måste den mänskliga analysen styra.\n\nKärna: Transparens och mänskligt omdöme är garanten för en rättvis förskola."
+    }
+  },
+  {
+    id: 'manager5',
+    role: UserRole.MANAGER,
+    text: "Case 5: Kommunikation på enhetsmötet\nDu märker att stämningen på enheten är lite orolig kring AI – vissa är rädda att deras arbetsuppgifter ska försvinna. Du vill använda AI för att skriva ett peppande manus till nästa enhetsmöte för att lugna personalen.\n\nFråga: Vad är viktigast att tänka på när du använder AI för att kommunicera som ledare?",
+    correctRuleId: 7,
+    explanation: "Regel 7: Transparens. För att behålla förtroendet bör du vara öppen med när du använder AI. Genom att berätta: \"Jag har tagit hjälp av AI för att strukturera mina tankar inför idag\", agerar du som en förebild och visar på en transparent och ansvarsfull användning i linje med stadens policy. [Källa: Att använda AI i Göteborgs Stad]",
+    sourceQuote: "Källa: Att använda AI i Göteborgs Stad",
+    clue: "Transparens: Vi ska kunna förklara för andra hur vi använder AI.",
+    socraticQuestion: "Kan för hög transparens (t.ex. att AI skrivit HELA talet) minska din auktoritet som ledare?",
+    options: [1, 7, 8, 9],
+    nudge: {
+      title: "Vill du veta varför?",
+      content: "Fördjupning: Regel 7 om transparens handlar om att bygga en tillitskultur. Genom att vara öppen med att du använder AI avmystifierar du tekniken. Det visar att AI är ett komplement till ditt ledarskap, inte en ersättare. Det ger också dina medarbetare tryggheten att själva våga utforska verktygen under ordnade och öppna former.\n\nKärna: Ett modernt ledarskap kräver ärlighet om de verktyg vi använder."
     }
   }
 ];

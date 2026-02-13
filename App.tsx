@@ -159,11 +159,10 @@ const SourceModal: React.FC<{ isOpen: boolean; onClose: () => void; clue?: strin
 };
 
 const RiskDetectiveMatching: React.FC<{ role: UserRole; onComplete: () => void }> = ({ role, onComplete }) => {
-  // Shuffle cases at start based on role
-  const shuffledScenarios = useMemo(() => {
+  // Respect array order (chronological) by removing the shuffle
+  const roleScenarios = useMemo(() => {
     return MATCHING_SCENARIOS
-      .filter(s => s.role === role)
-      .sort(() => Math.random() - 0.5);
+      .filter(s => s.role === role);
   }, [role]);
 
   const [currentIdx, setCurrentIdx] = useState(0);
@@ -173,7 +172,7 @@ const RiskDetectiveMatching: React.FC<{ role: UserRole; onComplete: () => void }
   const [clueViewed, setClueViewed] = useState(false);
   const [nudgeExpanded, setNudgeExpanded] = useState(false);
 
-  const scenario = shuffledScenarios[currentIdx];
+  const scenario = roleScenarios[currentIdx];
   const isCorrect = selectedRuleId === scenario?.correctRuleId;
 
   const handleMatch = (ruleId: number) => {
@@ -188,7 +187,7 @@ const RiskDetectiveMatching: React.FC<{ role: UserRole; onComplete: () => void }
   };
 
   const nextScenario = () => {
-    if (currentIdx < shuffledScenarios.length - 1) {
+    if (currentIdx < roleScenarios.length - 1) {
       setCurrentIdx(currentIdx + 1);
       setSelectedRuleId(null);
       setShowFeedback(false);
@@ -228,7 +227,7 @@ const RiskDetectiveMatching: React.FC<{ role: UserRole; onComplete: () => void }
       />
       
       <div className="flex justify-between items-center px-1">
-        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Case {currentIdx + 1} / {shuffledScenarios.length}</span>
+        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Case {currentIdx + 1} / {roleScenarios.length}</span>
       </div>
 
       <div className="bg-slate-50 p-8 rounded-2xl border-2 border-slate-100 shadow-inner relative group">
@@ -238,7 +237,7 @@ const RiskDetectiveMatching: React.FC<{ role: UserRole; onComplete: () => void }
           </div>
           <h3 className="font-bold text-lg text-[#004b89]">{role === UserRole.HR ? 'Rekryterings-Case' : role + '-Case'}</h3>
         </div>
-        <p className="text-xl text-slate-800 font-medium leading-relaxed mb-6">
+        <p className="text-xl text-slate-800 font-medium leading-relaxed mb-6 whitespace-pre-line">
           {scenario.text}
         </p>
 
@@ -261,7 +260,7 @@ const RiskDetectiveMatching: React.FC<{ role: UserRole; onComplete: () => void }
         <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 animate-in fade-in slide-in-from-top-2 duration-300">
           <p className="text-sm text-[#004b89] font-medium italic text-center">
             <i className="fa-solid fa-info-circle mr-2"></i>
-            Nu när du läst policyn: Vilken regel hanterar risken i caset bäst?
+            Nu att du har läst policyn: Vilken regel hanterar risken i caset bäst?
           </p>
         </div>
       )}
@@ -318,40 +317,30 @@ const RiskDetectiveMatching: React.FC<{ role: UserRole; onComplete: () => void }
               <div className="mt-4 pt-4 border-t border-black/5">
                 <button 
                   onClick={() => setNudgeExpanded(!nudgeExpanded)}
-                  className={`flex items-center gap-2 font-bold text-sm px-4 py-2 rounded-full transition-all border ${
-                    isCorrect 
-                      ? 'bg-blue-100/50 text-[#004b89] border-blue-200/30 hover:bg-blue-200/50' 
-                      : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
+                  className={`flex items-center gap-2 font-bold text-sm px-6 py-3 rounded-xl transition-all border shadow-sm ${
+                    nudgeExpanded 
+                      ? 'bg-slate-800 text-white border-slate-700 hover:bg-slate-900' 
+                      : 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100'
                   }`}
                 >
-                  <i className={`fa-solid ${nudgeExpanded ? 'fa-chevron-up' : scenario.nudge.title.includes('🔍') ? 'fa-magnifying-glass' : 'fa-lightbulb'} ${isCorrect ? 'text-blue-500' : 'text-slate-400'}`}></i>
-                  {nudgeExpanded ? 'Stäng förklaring' : scenario.nudge.title}
+                  <i className={`fa-solid ${nudgeExpanded ? 'fa-chevron-up' : 'fa-lightbulb'} ${!nudgeExpanded && 'text-amber-500'}`}></i>
+                  {nudgeExpanded ? 'Stäng fördjupning' : scenario.nudge.title}
                 </button>
                 
                 {nudgeExpanded && (
-                  <div className="mt-4 p-6 bg-blue-50 rounded-2xl border border-blue-200 text-slate-800 animate-in fade-in slide-in-from-top-2 duration-300 shadow-inner">
+                  <div className="mt-4 p-6 bg-white rounded-2xl border-2 border-indigo-100 text-slate-800 animate-in fade-in slide-in-from-top-2 duration-300 shadow-lg ring-1 ring-indigo-50">
                     <div className="prose prose-sm max-w-none">
                       {scenario.nudge.content.split('\n\n').map((paragraph, pIdx) => (
                         <div key={pIdx} className="mb-4 last:mb-0">
-                          {paragraph.startsWith('Exemplet:') ? (
+                          {paragraph.startsWith('Fördjupning:') ? (
                             <p className="text-sm leading-relaxed">
-                              <span className="font-bold text-[#004b89] block mb-1">Exemplet:</span>
+                              <span className="font-bold text-indigo-800 block mb-1 uppercase tracking-tighter text-xs">Fördjupning & Juridisk bakgrund:</span>
                               {paragraph.split(':').slice(1).join(':').trim()}
                             </p>
-                          ) : paragraph.startsWith('Kärnproblemet:') ? (
-                            <p className="text-sm leading-relaxed">
-                              <span className="font-bold text-slate-800 block mb-1">Kärnproblemet:</span>
-                              {paragraph.split(':').slice(1).join(':').trim()}
-                            </p>
-                          ) : paragraph.startsWith('Kom ihåg:') ? (
-                            <p className="text-sm leading-relaxed mt-4 border-t border-blue-200 pt-2 font-medium">
-                              <span className="font-bold text-slate-900 block">Kom ihåg:</span>
-                              {paragraph.split(':').slice(1).join(':').trim()}
-                            </p>
-                          ) : paragraph.startsWith('Kärnbudskap:') ? (
-                            <div className="mt-4 bg-white p-4 rounded-xl border border-blue-200 shadow-sm text-center italic text-[#004b89] font-bold">
-                              <i className="fa-solid fa-star mr-2 text-amber-400"></i>
-                              {paragraph.split(':').slice(1).join(':').trim()}
+                          ) : paragraph.startsWith('Kärna:') ? (
+                            <div className="mt-4 bg-indigo-50 p-4 rounded-xl border border-indigo-100 shadow-inner italic text-indigo-900 font-bold flex items-center gap-3">
+                              <i className="fa-solid fa-star text-amber-400"></i>
+                              <span>{paragraph.split(':').slice(1).join(':').trim()}</span>
                             </div>
                           ) : (
                             <p className="text-sm leading-relaxed">{paragraph}</p>
@@ -370,7 +359,7 @@ const RiskDetectiveMatching: React.FC<{ role: UserRole; onComplete: () => void }
               onClick={nextScenario}
               className="w-full mt-8 bg-[#004b89] text-white py-5 rounded-2xl font-bold text-xl hover:bg-[#003d70] transition-all shadow-xl hover:-translate-y-1"
             >
-              {currentIdx === shuffledScenarios.length - 1 ? 'Lås upp nästa modul' : 'Nästa utmaning'}
+              {currentIdx === roleScenarios.length - 1 ? 'Lås upp nästa modul' : 'Nästa utmaning'}
             </button>
           ) : (
             <button
