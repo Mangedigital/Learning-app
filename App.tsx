@@ -229,17 +229,6 @@ const RiskDetectiveMatching: React.FC<{ role: UserRole; onComplete: () => void }
       
       <div className="flex justify-between items-center px-1">
         <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Case {currentIdx + 1} / {shuffledScenarios.length}</span>
-        <button 
-          onClick={() => { setIsClueOpen(true); setClueViewed(true); }}
-          className={`flex items-center gap-2 font-bold text-xs px-4 py-2 rounded-full transition-all border ${
-            clueViewed 
-              ? 'bg-green-50 text-green-700 border-green-200' 
-              : 'bg-amber-50 text-amber-700 border-amber-200 animate-pulse'
-          }`}
-        >
-          <i className={`fa-solid ${clueViewed ? 'fa-check' : 'fa-book-open'}`}></i>
-          {clueViewed ? 'REGEL LÄST' : 'LÄS REGELN'}
-        </button>
       </div>
 
       <div className="bg-slate-50 p-8 rounded-2xl border-2 border-slate-100 shadow-inner relative group">
@@ -249,16 +238,30 @@ const RiskDetectiveMatching: React.FC<{ role: UserRole; onComplete: () => void }
           </div>
           <h3 className="font-bold text-lg text-[#004b89]">{role === UserRole.HR ? 'Rekryterings-Case' : role + '-Case'}</h3>
         </div>
-        <p className="text-xl text-slate-800 font-medium leading-relaxed">
+        <p className="text-xl text-slate-800 font-medium leading-relaxed mb-6">
           {scenario.text}
         </p>
+
+        <div className="flex justify-center">
+          <button 
+            onClick={() => { setIsClueOpen(true); setClueViewed(true); }}
+            className={`flex items-center gap-3 font-bold text-sm px-8 py-4 rounded-xl transition-all border-2 shadow-sm active:scale-95 ${
+              clueViewed 
+                ? 'bg-green-50 text-green-700 border-green-200' 
+                : 'bg-amber-50 text-amber-700 border-amber-300 animate-pulse hover:bg-amber-100'
+            }`}
+          >
+            <i className={`fa-solid ${clueViewed ? 'fa-check-circle' : 'fa-book-open'} text-lg`}></i>
+            {clueViewed ? 'REGEL LÄST - KLAR ATT VÄLJA' : 'LÄS REGELN I POLICY (OBLIGATORISKT)'}
+          </button>
+        </div>
       </div>
 
       {!showFeedback && clueViewed && (
         <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 animate-in fade-in slide-in-from-top-2 duration-300">
-          <p className="text-sm text-[#004b89] font-medium italic">
+          <p className="text-sm text-[#004b89] font-medium italic text-center">
             <i className="fa-solid fa-info-circle mr-2"></i>
-            Välj den gyllene regel som bäst hanterar risken ovan.
+            Nu när du läst policyn: Vilken regel hanterar risken i caset bäst?
           </p>
         </div>
       )}
