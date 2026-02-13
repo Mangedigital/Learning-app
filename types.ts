@@ -27,6 +27,7 @@ export interface CourseModule {
 }
 
 export interface QuizQuestion {
+  role?: UserRole;
   question: string;
   answer: boolean;
   explanation: string;

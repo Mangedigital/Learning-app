@@ -166,6 +166,7 @@ export const MODULES: CourseModule[] = [
 ];
 
 export const QUIZ_QUESTIONS: QuizQuestion[] = [
+  // --- GENERELT / MANAGER ---
   {
     question: "Är det tillåtet att använda AI för att rangordna kandidater om jag själv fattar slutbeslutet?",
     answer: false,
@@ -175,6 +176,26 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
     question: "Om jag använder AI för att rätta stavfel i ett offentligt dokument, räknas det fortfarande som att jag är 'människan i loopen'?",
     answer: true,
     explanation: "Sant. Men du måste fortfarande läsa igenom slutresultatet för att säkerställa att AI:n inte ändrat betydelsen i texten."
+  },
+
+  // --- UTVECKLINGSLEDARE SPECIFIKT ---
+  {
+    role: UserRole.DEV_LEAD,
+    question: "Är det tillåtet att använda publik AI för att omarbeta språket i introduktionsplaner, under förutsättning att ingen sekretess eller känslig info matas in?",
+    answer: true,
+    explanation: "Sant, men med stor försiktighet. Du bär ansvaret för att AI:n inte hittar på egna rutiner och du får absolut inte mata in säkerhetskoder eller interna detaljer (Regel 2 & 6)."
+  },
+  {
+    role: UserRole.DEV_LEAD,
+    question: "Det är säkert att analysera transkriberade exit-samtal i en publik AI så länge jag har tagit bort personnamnen.",
+    answer: false,
+    explanation: "Falskt. Risken för indirekt identifiering via unika händelser eller citat är hög. För personalärenden krävs stadsövergripande, säkra AI-miljöer (Regel 5 & 8)."
+  },
+  {
+    role: UserRole.DEV_LEAD,
+    question: "AI-genererade bilder för rekrytering får användas fritt så länge de är märkta som 'AI-genererad'.",
+    answer: false,
+    explanation: "Falskt. Bilderna måste också vara sakliga och inte ge en vilseledande bild av verksamheten. Dessutom får man inte använda stadens egna bildbanker för att träna AI:n (Regel 9)."
   }
 ];
 

@@ -451,13 +451,20 @@ const ReflectionModule: React.FC<{ role: UserRole; onComplete: (text: string) =>
   );
 };
 
-const QuizModule: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
+const QuizModule: React.FC<{ role: UserRole; onComplete: () => void }> = ({ role, onComplete }) => {
   const [currentIdx, setCurrentIdx] = useState(0);
   const [selected, setSelected] = useState<boolean | null>(null);
   const [showExplanation, setShowExplanation] = useState(false);
   const [score, setScore] = useState(0);
 
-  const question = QUIZ_QUESTIONS[currentIdx];
+  // Filter questions based on role or fallback to general ones
+  const filteredQuestions = useMemo(() => {
+    const roleSpecific = QUIZ_QUESTIONS.filter(q => q.role === role);
+    if (roleSpecific.length > 0) return roleSpecific;
+    return QUIZ_QUESTIONS.filter(q => !q.role);
+  }, [role]);
+
+  const question = filteredQuestions[currentIdx];
 
   const handleAnswer = (val: boolean) => {
     if (showExplanation) return;
@@ -467,7 +474,7 @@ const QuizModule: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
   };
 
   const next = () => {
-    if (currentIdx < QUIZ_QUESTIONS.length - 1) {
+    if (currentIdx < filteredQuestions.length - 1) {
       setCurrentIdx(i => i + 1);
       setSelected(null);
       setShowExplanation(false);
@@ -476,12 +483,14 @@ const QuizModule: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
     }
   };
 
+  if (!question) return <div>Laddar...</div>;
+
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-center px-1">
-        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Utmaning {currentIdx + 1} / {QUIZ_QUESTIONS.length}</span>
+        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Utmaning {currentIdx + 1} / {filteredQuestions.length}</span>
         <div className="flex gap-1.5">
-          {QUIZ_QUESTIONS.map((_, i) => (
+          {filteredQuestions.map((_, i) => (
             <div key={i} className={`h-2 w-8 rounded-full transition-all duration-300 ${i <= currentIdx ? 'bg-[#004b89]' : 'bg-slate-100'}`}></div>
           ))}
         </div>
@@ -527,7 +536,7 @@ const QuizModule: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
             onClick={next}
             className="w-full mt-6 bg-[#004b89] text-white py-4 rounded-xl font-bold hover:bg-[#003d70] transition-all shadow-lg hover:-translate-y-0.5"
           >
-            {currentIdx === QUIZ_QUESTIONS.length - 1 ? 'Se sammanfattning' : 'Nästa utmaning'}
+            {currentIdx === filteredQuestions.length - 1 ? 'Se sammanfattning' : 'Nästa utmaning'}
           </button>
         </div>
       )}
@@ -535,7 +544,7 @@ const QuizModule: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
   );
 };
 
-const LearningPath: React.FC<{ role: UserRole; completedModules: string[]; onSelect: (id: string) => void }> = ({ role, completedModules, onSelect }) => {
+const LearningPath: React.FC<{ role: UserRole; completedModules: string[]; debugMode: boolean; onSelect: (id: string) => void }> = ({ role, completedModules, debugMode, onSelect }) => {
   return (
     <div className="max-w-4xl mx-auto p-6 animate-in fade-in duration-700">
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
@@ -562,7 +571,7 @@ const LearningPath: React.FC<{ role: UserRole; completedModules: string[]; onSel
 
           {MODULES.map((mod, index) => {
             const isCompleted = completedModules.includes(mod.id);
-            const isAvailable = completedModules.length >= index;
+            const isAvailable = debugMode || completedModules.length >= index;
             const isLocked = !isAvailable;
             const isCurrent = completedModules.length === index;
 
@@ -591,6 +600,7 @@ const LearningPath: React.FC<{ role: UserRole; completedModules: string[]; onSel
                       <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-500 font-bold uppercase tracking-tighter">{mod.metadata.category}</span>
                       {isCompleted && <span className="text-[10px] bg-green-500 text-white px-2 py-0.5 rounded font-bold uppercase tracking-tighter">KLAR</span>}
                       {isCurrent && <span className="text-[10px] bg-blue-500 text-white px-2 py-0.5 rounded font-bold uppercase tracking-tighter animate-pulse">PÅGÅR</span>}
+                      {debugMode && !isCompleted && !isCurrent && <span className="text-[10px] bg-amber-500 text-white px-2 py-0.5 rounded font-bold uppercase tracking-tighter">UPPLÅST</span>}
                     </div>
                   </div>
                   <p className="text-slate-500 text-sm leading-relaxed">{mod.description}</p>
@@ -678,6 +688,7 @@ export default function App() {
   const [completedModules, setCompletedModules] = useState<string[]>([]);
   const [userReflection, setUserReflection] = useState('');
   const [isFinished, setIsFinished] = useState(false);
+  const [debugMode, setDebugMode] = useState(false);
 
   const activeModule = MODULES.find(m => m.id === activeModuleId);
 
@@ -712,6 +723,17 @@ export default function App() {
       <div className="min-h-screen bg-slate-50">
         <Header onReset={reset} />
         <RoleSelector onSelect={setRole} />
+        <footer className="p-8 text-center text-slate-400 text-sm border-t border-slate-100 mt-12 bg-white">
+          <div className="max-w-4xl mx-auto flex flex-col items-center gap-2">
+            <p className="font-medium">© {new Date().getFullYear()} Göteborgs Stad. Utbildningsprototyp för HR-avdelningen.</p>
+            <button 
+              onClick={() => setDebugMode(!debugMode)} 
+              className={`text-[10px] transition-all px-2 py-0.5 rounded ${debugMode ? 'bg-amber-100 text-amber-600 font-bold' : 'opacity-20 hover:opacity-100'}`}
+            >
+              <i className="fa-solid fa-gear mr-1"></i> {debugMode ? 'Testläge AKTIVT' : 'Testläge'}
+            </button>
+          </div>
+        </footer>
       </div>
     );
   }
@@ -721,6 +743,17 @@ export default function App() {
       <div className="min-h-screen bg-slate-100">
         <Header role={role} onReset={reset} />
         <CourseSummary role={role} reflection={userReflection} onFinish={reset} />
+        <footer className="p-8 text-center text-slate-400 text-sm border-t border-slate-100 mt-12 bg-white">
+          <div className="max-w-4xl mx-auto flex flex-col items-center gap-2">
+            <p className="font-medium">© {new Date().getFullYear()} Göteborgs Stad. Utbildningsprototyp för HR-avdelningen.</p>
+            <button 
+              onClick={() => setDebugMode(!debugMode)} 
+              className={`text-[10px] transition-all px-2 py-0.5 rounded ${debugMode ? 'bg-amber-100 text-amber-600 font-bold' : 'opacity-20 hover:opacity-100'}`}
+            >
+              <i className="fa-solid fa-gear mr-1"></i> {debugMode ? 'Testläge AKTIVT' : 'Testläge'}
+            </button>
+          </div>
+        </footer>
       </div>
     );
   }
@@ -734,6 +767,7 @@ export default function App() {
           <LearningPath 
             role={role} 
             completedModules={completedModules} 
+            debugMode={debugMode}
             onSelect={setActiveModuleId} 
           />
         ) : (
@@ -749,15 +783,21 @@ export default function App() {
               <ReflectionModule role={role} onComplete={handleModuleComplete} />
             )}
             {activeModule?.type === 'quiz' && (
-              <QuizModule onComplete={() => handleModuleComplete()} />
+              <QuizModule role={role} onComplete={() => handleModuleComplete()} />
             )}
           </ModuleLayout>
         )}
       </main>
 
       <footer className="p-8 text-center text-slate-400 text-sm border-t border-slate-100 mt-12 bg-white">
-        <div className="max-w-4xl mx-auto">
-          <p className="font-medium">© {new Date().getFullYear()} Göteborgs Stad. Utbildningsprototyp för HR-avdelningen inom Förskoleförvaltningen.</p>
+        <div className="max-w-4xl mx-auto flex flex-col items-center gap-2">
+          <p className="font-medium">© {new Date().getFullYear()} Göteborgs Stad. Utbildningsprototyp för HR-avdelningen.</p>
+          <button 
+            onClick={() => setDebugMode(!debugMode)} 
+            className={`text-[10px] transition-all px-2 py-0.5 rounded ${debugMode ? 'bg-amber-100 text-amber-600 font-bold' : 'opacity-20 hover:opacity-100'}`}
+          >
+            <i className="fa-solid fa-gear mr-1"></i> {debugMode ? 'Testläge AKTIVT' : 'Testläge'}
+          </button>
         </div>
       </footer>
     </div>
