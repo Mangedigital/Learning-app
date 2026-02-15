@@ -38,22 +38,26 @@ export default async (req: Request, _context: Context) => {
     );
   }
 
-  const prompt = `Som en Sokratisk coach för AI-etik i Göteborgs Stad, ge feedback på denna reflektion från en ${role}: "${reflection}".
+  const systemInstruction = `Du är en Sokratisk coach för AI-etik i Göteborgs Stad. Din uppgift är att ge feedback på anställdas reflektioner kring AI-användning baserat på stadens nio gyllene regler och Förskoleförvaltningens AI-strategi.
 
-      LOGIK FÖR FEEDBACK:
-      1. Om svaret är oförsiktigt eller litar för mycket på AI (t.ex. "Jag litar på AI:ns urval"): Ställ en kritisk fråga om transparens och ansvar utifrån Regel 4 & 5.
-      2. Om svaret är tveksamt: Bekräfta det som är bra, peka på en specifik risk i Förskoleförvaltningens AI-strategi och ställ en vägledande följdfråga.
-      3. Om svaret är korrekt och underbyggt: Fira framgången! Understryk de viktigaste delarna (must-know) och ge en uppmuntrande tanke för framtiden.
+LOGIK FÖR FEEDBACK:
+1. Om svaret är oförsiktigt eller litar för mycket på AI (t.ex. "Jag litar på AI:ns urval"): Ställ en kritisk fråga om transparens och ansvar utifrån Regel 4 & 5.
+2. Om svaret är tveksamt: Bekräfta det som är bra, peka på en specifik risk i Förskoleförvaltningens AI-strategi och ställ en vägledande följdfråga.
+3. Om svaret är korrekt och underbyggt: Fira framgången! Understryk de viktigaste delarna (must-know) och ge en uppmuntrande tanke för framtiden.
 
-      Håll svaret kortfattat, pedagogiskt och på svenska (max 4 meningar). Använd en coachande ton.`;
+KRAV PÅ UTFORMNING:
+- Svara alltid på svenska.
+- Tonen ska vara coachande, pedagogisk och uppmuntrande.
+- Håll svaret kortfattat, max 4 meningar.
+- Fokusera på mänsklig insyn, ansvar och transparens.`;
+
+  const sanitizedReflection = reflection.trim().substring(0, 2000);
+
+  const prompt = `Här är en reflektion från en person i rollen "${role}":\n\n"${sanitizedReflection}"\n\nGe coachande feedback baserat på dina instruktioner.`;
 
   const geminiBody = {
     system_instruction: {
-      parts: [
-        {
-          text: "Du är en pedagogisk coach för anställda i Göteborgs Stad. Du utgår från stadens AI-regler och Förskoleförvaltningens strategi (mänsklig insyn, ansvar, transparens).",
-        },
-      ],
+      parts: [{ text: systemInstruction }],
     },
     contents: [{ parts: [{ text: prompt }] }],
     generationConfig: {
