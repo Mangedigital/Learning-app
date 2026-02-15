@@ -31,11 +31,20 @@
         .text-gbg-blue { color: var(--gbg-blue); }
         .border-gbg-blue { border-color: var(--gbg-blue); }
         
-        /* Custom scrollbar */
+        /* Custom scrollbar - hide on mobile for cleaner look */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #f1f5f9; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        /* Mobile touch enhancements */
+        @media (max-width: 767px) {
+            ::-webkit-scrollbar { width: 4px; }
+            button, a { -webkit-tap-highlight-color: transparent; }
+        }
+
+        /* Smooth scrolling for iOS momentum */
+        .overflow-y-auto { -webkit-overflow-scrolling: touch; }
 
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         .animate-fade-in { animation: fadeIn 0.5s ease-out forwards; }

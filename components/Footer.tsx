@@ -7,7 +7,7 @@ interface FooterProps {
 }
 
 export const Footer: React.FC<FooterProps> = ({ debugMode, onToggleDebug }) => (
-  <footer className="p-8 text-center text-slate-400 text-sm border-t border-slate-100 mt-12 bg-white w-full">
+  <footer className="p-4 md:p-8 text-center text-slate-400 text-xs md:text-sm border-t border-slate-100 mt-8 md:mt-12 bg-white w-full">
     <div className="max-w-4xl mx-auto flex flex-col items-center gap-2">
       <p className="font-medium">© {new Date().getFullYear()} Göteborgs Stad. Utbildningsprototyp för HR-avdelningen.</p>
       <button 
