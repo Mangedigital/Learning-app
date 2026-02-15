@@ -1,10 +1,11 @@
 
 import { GoogleGenAI } from "@google/genai";
 
-// Ensure we don't crash if process is somehow not defined yet, though shim is in index.html
+// Hämtar API-nyckeln från Vite/Netlify miljövariabler
 const getApiKey = () => {
   try {
-    return process.env.API_KEY || '';
+    // @ts-ignore - import.meta.env är tillgänglig i Vite-miljöer
+    return import.meta.env.VITE_GEMINI_API_KEY || '';
   } catch (e) {
     return '';
   }
@@ -15,9 +16,12 @@ export const getReflectionFeedback = async (reflection: string, role: string) =>
   if (!apiKey) return "Anslutningsfel: API-nyckel saknas för feedback.";
   
   try {
+    // Skapar en ny instans för varje anrop för att säkerställa korrekt kontext
     const ai = new GoogleGenAI({ apiKey });
+    
+    // Använder ai.models.generateContent direkt med gemini-2.5-flash
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-2.5-flash',
       contents: `Som en Sokratisk coach för AI-etik i Göteborgs Stad, ge feedback på denna reflektion från en ${role}: "${reflection}".
       
       LOGIK FÖR FEEDBACK:
