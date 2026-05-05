@@ -2,6 +2,7 @@
 import React from 'react';
 import { UserRole } from '../types';
 import { MODULES } from '../constants';
+import { RESOURCE_LINKS } from '../resources';
 import { CourseProgressBar } from './CourseProgressBar';
 
 export const LearningPath: React.FC<{ 
@@ -92,20 +93,23 @@ export const LearningPath: React.FC<{
             <i className="fa-solid fa-book-open text-blue-400"></i>
             Resursbank
           </h3>
-          <p className="text-slate-300 mb-6 max-w-lg leading-relaxed text-sm md:text-base">Här hittar du dokument för enheten för kompetens och arbetsmarknad samt förskolenämndens uppdrag.</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-3">
-            {[
-              { title: 'Policy för Digitalisering & IT', icon: 'fa-file-shield' },
-              { title: 'Förskolenämndens riktlinjer', icon: 'fa-landmark' },
-              { title: 'Offentlighetsprincipen i praktiken', icon: 'fa-scale-balanced' },
-              { title: 'Etisk AI vid rekrytering', icon: 'fa-user-check' }
-            ].map((res, i) => (
-              <a key={i} href="#" className="flex items-center justify-between p-3 md:p-4 bg-white/10 hover:bg-white/15 rounded-xl transition-all border border-white/5 group">
+          <div className="grid grid-cols-1 gap-2 md:gap-3">
+            {RESOURCE_LINKS.map((res) => (
+              <a
+                key={res.href}
+                href={res.href}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-between p-3 md:p-4 bg-white/10 hover:bg-white/15 rounded-xl transition-all border border-white/5 group"
+              >
                 <div className="flex items-center gap-3">
-                  <i className={`fa-solid ${res.icon} text-blue-400 opacity-60`}></i>
+                  <i className="fa-solid fa-file-pdf text-blue-400 opacity-80"></i>
                   <span className="text-xs md:text-sm font-medium">{res.title}</span>
                 </div>
-                <i className="fa-solid fa-chevron-right text-[10px] opacity-0 group-hover:opacity-50 transition-all translate-x-2 group-hover:translate-x-0 hidden md:block"></i>
+                <span className="flex items-center gap-2 text-[10px] font-bold text-blue-200 uppercase tracking-widest">
+                  {res.format}
+                  <i className="fa-solid fa-arrow-up-right-from-square opacity-70"></i>
+                </span>
               </a>
             ))}
           </div>
