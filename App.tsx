@@ -14,29 +14,60 @@ import { CourseSummary } from './components/CourseSummary';
 import { Footer } from './components/Footer';
 
 const STORAGE_KEY = 'ai_i_vardagen_progress';
+const validRoles = new Set(Object.values(UserRole));
+const validModuleIds = new Set(MODULES.map((module) => module.id));
+
+const readStorageItem = (key: string) => {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+
+const readSavedRole = (): UserRole | null => {
+  const saved = readStorageItem(`${STORAGE_KEY}_role`);
+  return saved && validRoles.has(saved as UserRole) ? (saved as UserRole) : null;
+};
+
+const readSavedActiveModuleId = (): string | null => {
+  const saved = readStorageItem(`${STORAGE_KEY}_activeModuleId`);
+  return saved && validModuleIds.has(saved) ? saved : null;
+};
+
+const readSavedCompletedModules = (): string[] => {
+  const saved = readStorageItem(`${STORAGE_KEY}_completed`);
+  if (!saved) return [];
+
+  try {
+    const parsed = JSON.parse(saved);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((id): id is string => typeof id === 'string' && validModuleIds.has(id));
+  } catch {
+    return [];
+  }
+};
 
 export default function App() {
   // Initialize state from localStorage if available
   const [role, setRole] = useState<UserRole | null>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_role`);
-    return saved ? (saved as UserRole) : null;
+    return readSavedRole();
   });
   
   const [activeModuleId, setActiveModuleId] = useState<string | null>(() => {
-    return localStorage.getItem(`${STORAGE_KEY}_activeModuleId`);
+    return readSavedActiveModuleId();
   });
   
   const [completedModules, setCompletedModules] = useState<string[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_completed`);
-    return saved ? JSON.parse(saved) : [];
+    return readSavedCompletedModules();
   });
   
   const [userReflection, setUserReflection] = useState(() => {
-    return localStorage.getItem(`${STORAGE_KEY}_reflection`) || '';
+    return readStorageItem(`${STORAGE_KEY}_reflection`) || '';
   });
   
   const [isFinished, setIsFinished] = useState(() => {
-    return localStorage.getItem(`${STORAGE_KEY}_isFinished`) === 'true';
+    return readStorageItem(`${STORAGE_KEY}_isFinished`) === 'true';
   });
   
   const [debugMode, setDebugMode] = useState(false);
@@ -129,7 +160,7 @@ export default function App() {
       <Header role={role} onReset={reset} />
       
       <main className="flex-1">
-        {!activeModuleId ? (
+        {!activeModuleId || !activeModule ? (
           <LearningPath 
             role={role} 
             completedModules={completedModules} 
@@ -138,7 +169,7 @@ export default function App() {
           />
         ) : (
           <ModuleLayout 
-            module={activeModule!} 
+            module={activeModule}
             completedCount={completedModules.length}
             onBack={() => setActiveModuleId(null)}
           >
