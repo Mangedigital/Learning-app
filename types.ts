@@ -27,7 +27,9 @@ export interface CourseModule {
 }
 
 export interface QuizQuestion {
-  role?: UserRole;
+  id: string;
+  role: UserRole;
+  ruleIds: number[];
   question: string;
   answer: boolean;
   explanation: string;

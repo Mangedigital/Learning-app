@@ -9,12 +9,11 @@ export const QuizModule: React.FC<{ role: UserRole; onComplete: () => void }> = 
   const [showExplanation, setShowExplanation] = useState(false);
 
   const filteredQuestions = useMemo(() => {
-    const roleSpecific = QUIZ_QUESTIONS.filter(q => q.role === role);
-    if (roleSpecific.length > 0) return roleSpecific;
-    return QUIZ_QUESTIONS.filter(q => !q.role);
+    return QUIZ_QUESTIONS.filter(q => q.role === role);
   }, [role]);
 
   const question = filteredQuestions[currentIdx];
+  const ruleLabel = question ? `Regel ${question.ruleIds.join(' och ')}` : '';
 
   const handleAnswer = (val: boolean) => {
     if (showExplanation) return;
@@ -32,7 +31,14 @@ export const QuizModule: React.FC<{ role: UserRole; onComplete: () => void }> = 
     }
   };
 
-  if (!question) return <div className="p-8 text-center text-slate-500">Laddar...</div>;
+  if (!question) {
+    return (
+      <div className="p-8 md:p-12 text-center bg-white rounded-2xl shadow-sm border border-slate-100">
+        <h3 className="text-lg md:text-xl font-bold text-slate-800 mb-2">Inga quizfrågor tillgängliga</h3>
+        <p className="text-sm text-slate-500">Det finns inga rollanpassade quizfrågor för {role} ännu.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 md:space-y-8">
@@ -78,6 +84,9 @@ export const QuizModule: React.FC<{ role: UserRole; onComplete: () => void }> = 
             <div className="flex items-center gap-2 mb-1.5 md:mb-2">
               <i className={`fa-solid ${selected === question.answer ? 'fa-check-circle' : 'fa-circle-info'} text-lg md:text-xl`}></i>
               <h4 className="font-bold text-base md:text-lg">{selected === question.answer ? 'Rätt svar!' : 'Tänk på detta:'}</h4>
+            </div>
+            <div className="text-[10px] font-black uppercase tracking-widest mb-2 opacity-70">
+              Kopplat till {ruleLabel}
             </div>
             <p className="leading-relaxed font-medium text-sm md:text-base">{question.explanation}</p>
           </div>

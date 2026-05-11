@@ -211,36 +211,130 @@ export const MODULES: CourseModule[] = [
 ];
 
 export const QUIZ_QUESTIONS: QuizQuestion[] = [
-  // --- GENERELT / MANAGER ---
+  // --- HR-SPECIALIST/REKRYTERARE ---
   {
-    question: "Är det tillåtet att använda AI för att rangordna kandidater om jag själv fattar slutbeslutet?",
-    answer: false,
-    explanation: "Falskt. Policyn kräver att vi förstår hur AI:n tagit fram resultatet (förklarbarhet) för att undvika diskriminering."
+    id: 'hr-ethics-control',
+    role: UserRole.HR,
+    ruleIds: [1, 6],
+    question: "Du låter AI föreslå vilka kandidater som verkar mest lämpade, men du granskar själv mot kravprofilen och dokumenterar varför du går vidare med vissa. Det är ett exempel på mänsklig kontroll.",
+    answer: true,
+    explanation: "Sant. Regel 1 och 6 kräver att du använder AI ansvarsfullt, kontrollerar resultatet och själv ansvarar för hur det används."
   },
   {
-    question: "Om jag använder AI för att rätta stavfel i ett offentligt dokument, räknas det fortfarande som att jag är 'människan i loopen'?",
+    id: 'hr-approved-system',
+    role: UserRole.HR,
+    ruleIds: [2, 3],
+    question: "Om ett AI-verktyg är lätt att använda och ger bra rekryteringsstöd kan du använda det för urval även om det inte är godkänt för den information du hanterar.",
+    answer: false,
+    explanation: "Falskt. Regel 2 kräver att systemet uppfyller säkerhetskraven, och regel 3 påminner om särskilda krav vid högrisk AI-användning."
+  },
+  {
+    id: 'hr-confidential-personal-data',
+    role: UserRole.HR,
+    ruleIds: [4, 5],
+    question: "Det räcker att ta bort kandidatens namn innan du klistrar in CV och personligt brev i en publik AI-tjänst.",
+    answer: false,
+    explanation: "Falskt. Regel 4 och 5 skyddar sekretess, skyddsvärd information och personuppgifter; CV-data kan ofta identifiera en person indirekt."
+  },
+  {
+    id: 'hr-transparency-records',
+    role: UserRole.HR,
+    ruleIds: [7, 8],
+    question: "Om AI hjälper dig att formulera intervjufrågor som påverkar rekryteringsprocessen kan det vara relevant att kunna visa hur AI användes.",
     answer: true,
-    explanation: "Sant. Men du måste fortfarande läsa igenom slutresultatet för att säkerställa att AI:n inte ändrat betydelsen i texten."
+    explanation: "Sant. Regel 7 handlar om transparens, och regel 8 innebär att både inmatning och resultat kan bli allmän handling."
+  },
+  {
+    id: 'hr-copyright-trust',
+    role: UserRole.HR,
+    ruleIds: [9, 7],
+    question: "AI-genererade bilder eller texter i rekryteringsmaterial kan användas utan extra granskning så länge de ser professionella ut.",
+    answer: false,
+    explanation: "Falskt. Regel 9 kräver respekt för upphovsrätt, och regel 7 kräver transparent användning som inte skadar förtroendet."
   },
 
-  // --- UTVECKLINGSLEDARE SPECIFIKT ---
+  // --- UTVECKLINGSLEDARE ---
   {
+    id: 'dev-ethics-control',
     role: UserRole.DEV_LEAD,
-    question: "Är det tillåtet att använda publik AI för att omarbeta språket i introduktionsplaner, under förutsättning att ingen sekretess eller känslig info matas in?",
+    ruleIds: [1, 6],
+    question: "Du använder AI för att sammanfatta enkätkommentarer men jämför slutsatserna med originalmaterialet innan de används i planering. Det är rätt arbetssätt.",
     answer: true,
-    explanation: "Sant, men med stor försiktighet. Du bär ansvaret för att AI:n inte hittar på egna rutiner och du får absolut inte mata in säkerhetskoder eller interna detaljer (Regel 2 & 6)."
+    explanation: "Sant. Regel 1 och 6 kräver etiskt ansvar, mänsklig kontroll och att du kontrollerar resultatet innan det används."
   },
   {
+    id: 'dev-approved-system',
     role: UserRole.DEV_LEAD,
-    question: "Det är säkert att analysera transkriberade exit-samtal i en publik AI så länge jag har tagit bort personnamnen.",
+    ruleIds: [2, 3],
+    question: "Ett AI-förslag om resursfördelning i prioriterade områden kan användas direkt om modellen presenterar ett tydligt diagram.",
     answer: false,
-    explanation: "Falskt. Risken för indirekt identifiering via unika händelser eller citat är hög. För personalärenden krävs stadsövergripande, säkra AI-miljöer (Regel 5 & 8)."
+    explanation: "Falskt. Regel 2 och 3 kräver rätt säkerhetsnivå och särskild försiktighet vid högrisk eller verksamhetspåverkande AI-användning."
   },
   {
+    id: 'dev-confidential-personal-data',
     role: UserRole.DEV_LEAD,
-    question: "AI-genererade bilder för rekrytering får användas fritt så länge de är märkta som 'AI-genererad'.",
+    ruleIds: [4, 5],
+    question: "Frisvar från medarbetarenkäter kan analyseras i publik AI om namn tas bort, även när svaren innehåller unika händelser eller arbetsplatsdetaljer.",
     answer: false,
-    explanation: "Falskt. Bilderna måste också vara sakliga och inte ge en vilseledande bild av verksamheten. Dessutom får man inte använda stadens egna bildbanker för att träna AI:n (Regel 9)."
+    explanation: "Falskt. Regel 4 och 5 gäller även indirekt identifiering och skyddsvärd information, inte bara synliga namn."
+  },
+  {
+    id: 'dev-transparency-records',
+    role: UserRole.DEV_LEAD,
+    ruleIds: [7, 8],
+    question: "Om AI används för att ta fram ett underlag som påverkar ett beslut behöver du kunna förklara användningen och hantera materialet som möjlig allmän handling.",
+    answer: true,
+    explanation: "Sant. Regel 7 kräver transparens och regel 8 påminner om att både promptar och resultat kan omfattas av offentlighetsprincipen."
+  },
+  {
+    id: 'dev-copyright-trust',
+    role: UserRole.DEV_LEAD,
+    ruleIds: [9, 7],
+    question: "En AI-genererad bild i informationsmaterial behöver granskas så att den inte bryter mot upphovsrätt, använder fel symboler eller vilseleder mottagaren.",
+    answer: true,
+    explanation: "Sant. Regel 9 handlar om upphovsrätt och regel 7 om transparent användning som bidrar till förtroende."
+  },
+
+  // --- CHEF ---
+  {
+    id: 'manager-ethics-control',
+    role: UserRole.MANAGER,
+    ruleIds: [1, 6],
+    question: "Som chef kan du delegera AI-granskningen helt till medarbetaren som skapade underlaget, eftersom ansvaret följer den som använde verktyget.",
+    answer: false,
+    explanation: "Falskt. Regel 1 och 6 innebär att AI-resultat måste kontrolleras och att du ansvarar för hur materialet används i din verksamhet."
+  },
+  {
+    id: 'manager-approved-system',
+    role: UserRole.MANAGER,
+    ruleIds: [2, 3],
+    question: "Om flera medarbetare vill börja använda ett nytt AI-verktyg för transkribering bör du först säkerställa att verktyget är godkänt för informationstypen.",
+    answer: true,
+    explanation: "Sant. Regel 2 kräver att systemet uppfyller säkerhetskraven, och regel 3 kräver extra kontroll när användningen kan innebära hög risk."
+  },
+  {
+    id: 'manager-confidential-personal-data',
+    role: UserRole.MANAGER,
+    ruleIds: [4, 5],
+    question: "Du kan uppmuntra medarbetare att använda publik AI för APT-underlag så länge de bara undviker ordet sekretess i prompten.",
+    answer: false,
+    explanation: "Falskt. Regel 4 och 5 kräver att sekretess, skyddsvärd information och personuppgifter faktiskt skyddas, inte bara att vissa ord undviks."
+  },
+  {
+    id: 'manager-transparency-records',
+    role: UserRole.MANAGER,
+    ruleIds: [7, 8],
+    question: "När AI används i beslutsunderlag bör enheten ha rutiner för att kunna redovisa AI-användningen och spara relevant material vid behov.",
+    answer: true,
+    explanation: "Sant. Regel 7 kräver transparens, och regel 8 innebär att inmatning och resultat kan bli allmänna handlingar."
+  },
+  {
+    id: 'manager-copyright-trust',
+    role: UserRole.MANAGER,
+    ruleIds: [9, 7],
+    question: "Som chef behöver du sätta ramar för AI-genererat kommunikationsmaterial så att upphovsrätt, märkning och förtroende hanteras rätt.",
+    answer: true,
+    explanation: "Sant. Regel 9 kräver respekt för upphovsrätt, och regel 7 kräver transparent användning som stärker förtroendet."
   }
 ];
 
