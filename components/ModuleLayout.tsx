@@ -2,14 +2,14 @@
 import React from 'react';
 import { CourseModule } from '../types';
 import { CourseProgressBar } from './CourseProgressBar';
-import { MODULES } from '../constants';
 
 export const ModuleLayout: React.FC<{ 
   module: CourseModule; 
   completedCount: number; 
+  totalModules: number;
   onBack: () => void; 
   children: React.ReactNode 
-}> = ({ module, completedCount, onBack, children }) => (
+}> = ({ module, completedCount, totalModules, onBack, children }) => (
   <div className="max-w-4xl mx-auto p-4 md:p-6 animate-in fade-in duration-500">
     <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
       <button onClick={onBack} className="flex items-center gap-2 text-slate-500 hover:text-[#004b89] transition-colors font-medium text-sm md:text-base">
@@ -19,7 +19,7 @@ export const ModuleLayout: React.FC<{
       <div className="text-left md:text-right flex items-center md:block gap-3">
         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Kursframsteg</span>
         <div className="w-32 md:w-48">
-          <CourseProgressBar completed={completedCount} total={MODULES.length} />
+          <CourseProgressBar completed={completedCount} total={totalModules} />
         </div>
       </div>
     </div>

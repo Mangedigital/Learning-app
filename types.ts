@@ -26,6 +26,12 @@ export interface CourseModule {
   type: 'matching' | 'reflection' | 'quiz';
 }
 
+export interface ResourceLink {
+  title: string;
+  href: string;
+  format: 'PDF' | 'Word' | 'Link';
+}
+
 export interface QuizQuestion {
   id: string;
   role: UserRole;
@@ -56,4 +62,21 @@ export interface MatchingScenario {
     title: string;
     content: string;
   };
+}
+
+export interface MicroCourse {
+  id: string;
+  title: string;
+  description: string;
+  sourceTitle: string;
+  sourceFileName?: string;
+  createdAt: string;
+  status: 'draft' | 'published';
+  roles: UserRole[];
+  rules: GoldenRule[];
+  modules: CourseModule[];
+  matchingScenarios: MatchingScenario[];
+  roleScenarios: Record<UserRole, string>;
+  quizQuestions: QuizQuestion[];
+  resources: ResourceLink[];
 }

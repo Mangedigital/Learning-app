@@ -1,5 +1,5 @@
 
-import { GoldenRule, UserRole, CourseLevel, CourseModule, QuizQuestion, MatchingScenario } from './types';
+import { GoldenRule, UserRole, CourseLevel, CourseModule, QuizQuestion, MatchingScenario, MicroCourse } from './types';
 
 export const GOLDEN_RULES: GoldenRule[] = [
   { id: 1, title: 'Etiskt och ansvarsfullt', content: 'Du ansvarar för att du använder AI på ett etiskt och ansvarsfullt sätt utifrån stadens demokratiska uppdrag.' },
@@ -338,8 +338,31 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
   }
 ];
 
-export const ROLE_SCENARIOS = {
+export const ROLE_SCENARIOS: Record<UserRole, string> = {
   [UserRole.HR]: "Du överväger att använda AI för att sortera ut de 10 bästa kandidaterna till en rektorstjänst baserat på personlighetstest. Hur reflekterar du kring kravet på förklarbarhet?",
   [UserRole.DEV_LEAD]: "Du leder ett projekt där AI ska användas för att analysera frisvar i medarbetarenkäten. Hur säkerställer du att integriteten bevaras?",
   [UserRole.MANAGER]: "Du märker att dina medarbetare börjar använda AI för att skriva beslutsunderlag. Hur agerar du för att säkerställa att transparensen bibehålls?"
+};
+
+export const DEFAULT_COURSE: MicroCourse = {
+  id: 'ai-i-vardagen-goteborgs-stad',
+  title: 'AI i Vardagen',
+  description: 'En interaktiv utbildningsplattform för anställda i Göteborgs Stad om ansvarsfull användning av AI.',
+  sourceTitle: 'Att använda AI i Göteborgs Stad',
+  sourceFileName: 'att-anvanda-ai-i-goteborgs-stad.pdf',
+  createdAt: '2026-05-05T00:00:00.000Z',
+  status: 'published',
+  roles: [UserRole.HR, UserRole.DEV_LEAD, UserRole.MANAGER],
+  rules: GOLDEN_RULES,
+  modules: MODULES,
+  matchingScenarios: MATCHING_SCENARIOS,
+  roleScenarios: ROLE_SCENARIOS,
+  quizQuestions: QUIZ_QUESTIONS,
+  resources: [
+    {
+      title: 'Att använda AI i Göteborgs Stad',
+      href: '/resources/att-anvanda-ai-i-goteborgs-stad.pdf',
+      format: 'PDF',
+    },
+  ],
 };

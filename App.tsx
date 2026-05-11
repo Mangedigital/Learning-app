@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
-import { UserRole } from './types';
-import { MODULES } from './constants';
+import { MicroCourse, UserRole } from './types';
+import { courseRepository } from './services/courseRepository';
 
 import { Header } from './components/Header';
+import { CourseHome } from './components/CourseHome';
 import { RoleSelector } from './components/RoleSelector';
 import { LearningPath } from './components/LearningPath';
 import { ModuleLayout } from './components/ModuleLayout';
@@ -15,7 +16,6 @@ import { Footer } from './components/Footer';
 
 const STORAGE_KEY = 'ai_i_vardagen_progress';
 const validRoles = new Set(Object.values(UserRole));
-const validModuleIds = new Set(MODULES.map((module) => module.id));
 
 const readStorageItem = (key: string) => {
   try {
@@ -32,7 +32,7 @@ const readSavedRole = (): UserRole | null => {
 
 const readSavedActiveModuleId = (): string | null => {
   const saved = readStorageItem(`${STORAGE_KEY}_activeModuleId`);
-  return saved && validModuleIds.has(saved) ? saved : null;
+  return saved;
 };
 
 const readSavedCompletedModules = (): string[] => {
@@ -42,13 +42,17 @@ const readSavedCompletedModules = (): string[] => {
   try {
     const parsed = JSON.parse(saved);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter((id): id is string => typeof id === 'string' && validModuleIds.has(id));
+    return parsed.filter((id): id is string => typeof id === 'string');
   } catch {
     return [];
   }
 };
 
 export default function App() {
+  const [courses, setCourses] = useState<MicroCourse[]>(() => courseRepository.listCourses());
+  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(() => {
+    return readStorageItem(`${STORAGE_KEY}_courseId`);
+  });
   // Initialize state from localStorage if available
   const [role, setRole] = useState<UserRole | null>(() => {
     return readSavedRole();
@@ -71,8 +75,14 @@ export default function App() {
   });
   
   const [debugMode, setDebugMode] = useState(false);
+  const activeCourse = courses.find((course) => course.id === selectedCourseId) || null;
 
   // Sync state to localStorage whenever it changes
+  useEffect(() => {
+    if (selectedCourseId) localStorage.setItem(`${STORAGE_KEY}_courseId`, selectedCourseId);
+    else localStorage.removeItem(`${STORAGE_KEY}_courseId`);
+  }, [selectedCourseId]);
+
   useEffect(() => {
     if (role) localStorage.setItem(`${STORAGE_KEY}_role`, role);
     else localStorage.removeItem(`${STORAGE_KEY}_role`);
@@ -95,9 +105,25 @@ export default function App() {
     localStorage.setItem(`${STORAGE_KEY}_isFinished`, String(isFinished));
   }, [isFinished]);
 
-  const activeModule = MODULES.find(m => m.id === activeModuleId);
+  const activeModule = activeCourse?.modules.find(m => m.id === activeModuleId);
+
+  const selectCourse = (course: MicroCourse) => {
+    setSelectedCourseId(course.id);
+    setRole(null);
+    setActiveModuleId(null);
+    setCompletedModules([]);
+    setUserReflection('');
+    setIsFinished(false);
+  };
+
+  const publishCourse = (course: MicroCourse) => {
+    const saved = courseRepository.saveCourse(course);
+    setCourses(courseRepository.listCourses());
+    selectCourse(saved);
+  };
 
   const reset = () => {
+    setSelectedCourseId(null);
     setRole(null);
     setActiveModuleId(null);
     setCompletedModules([]);
@@ -109,10 +135,11 @@ export default function App() {
     localStorage.removeItem(`${STORAGE_KEY}_completed`);
     localStorage.removeItem(`${STORAGE_KEY}_reflection`);
     localStorage.removeItem(`${STORAGE_KEY}_isFinished`);
+    localStorage.removeItem(`${STORAGE_KEY}_courseId`);
   };
 
   const handleModuleComplete = (reflectionData?: string) => {
-    if (activeModuleId) {
+    if (activeModuleId && activeCourse) {
       const newCompleted = completedModules.includes(activeModuleId) 
         ? completedModules 
         : [...completedModules, activeModuleId];
@@ -126,7 +153,7 @@ export default function App() {
       setActiveModuleId(null);
 
       // Check if this was the last module
-      const isLastModule = MODULES.findIndex(m => m.id === activeModuleId) === MODULES.length - 1;
+      const isLastModule = activeCourse.modules.findIndex(m => m.id === activeModuleId) === activeCourse.modules.length - 1;
       if (isLastModule) {
         setIsFinished(true);
       }
@@ -135,11 +162,21 @@ export default function App() {
 
   const toggleDebug = () => setDebugMode(!debugMode);
 
+  if (!activeCourse) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <Header onReset={reset} />
+        <CourseHome courses={courses} onSelectCourse={selectCourse} onPublishCourse={publishCourse} />
+        <Footer debugMode={debugMode} onToggleDebug={toggleDebug} />
+      </div>
+    );
+  }
+
   if (!role) {
     return (
       <div className="min-h-screen bg-slate-50">
         <Header onReset={reset} />
-        <RoleSelector onSelect={setRole} />
+        <RoleSelector roles={activeCourse.roles} onSelect={setRole} />
         <Footer debugMode={debugMode} onToggleDebug={toggleDebug} />
       </div>
     );
@@ -162,7 +199,10 @@ export default function App() {
       <main className="flex-1">
         {!activeModuleId || !activeModule ? (
           <LearningPath 
+            courseTitle={activeCourse.title}
             role={role} 
+            modules={activeCourse.modules}
+            resources={activeCourse.resources}
             completedModules={completedModules} 
             debugMode={debugMode}
             onSelect={setActiveModuleId} 
@@ -171,16 +211,22 @@ export default function App() {
           <ModuleLayout 
             module={activeModule}
             completedCount={completedModules.length}
+            totalModules={activeCourse.modules.length}
             onBack={() => setActiveModuleId(null)}
           >
             {activeModule?.type === 'matching' && (
-              <RiskDetectiveMatching role={role} onComplete={() => handleModuleComplete()} />
+              <RiskDetectiveMatching
+                role={role}
+                rules={activeCourse.rules}
+                scenarios={activeCourse.matchingScenarios}
+                onComplete={() => handleModuleComplete()}
+              />
             )}
             {activeModule?.type === 'reflection' && (
-              <ReflectionModule role={role} onComplete={handleModuleComplete} />
+              <ReflectionModule role={role} roleScenarios={activeCourse.roleScenarios} onComplete={handleModuleComplete} />
             )}
             {activeModule?.type === 'quiz' && (
-              <QuizModule role={role} onComplete={() => handleModuleComplete()} />
+              <QuizModule role={role} questions={activeCourse.quizQuestions} onComplete={() => handleModuleComplete()} />
             )}
           </ModuleLayout>
         )}

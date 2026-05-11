@@ -1,8 +1,8 @@
 
 import React from 'react';
-import { GOLDEN_RULES } from '../constants';
+import { GoldenRule } from '../types';
 
-export const SourceModal: React.FC<{ isOpen: boolean; onClose: () => void; clue?: string }> = ({ isOpen, onClose, clue }) => {
+export const SourceModal: React.FC<{ isOpen: boolean; onClose: () => void; rules: GoldenRule[]; clue?: string }> = ({ isOpen, onClose, rules, clue }) => {
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 md:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
@@ -27,7 +27,7 @@ export const SourceModal: React.FC<{ isOpen: boolean; onClose: () => void; clue?
           
           <div className="space-y-4 md:space-y-6">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2">Våra gyllene regler</p>
-            {GOLDEN_RULES.map((rule) => (
+            {rules.map((rule) => (
               <div key={rule.id} className="p-3 md:p-4 bg-slate-50 rounded-xl border border-slate-100">
                 <h4 className="font-bold text-sm md:text-base text-[#004b89] mb-1">{rule.id}. {rule.title}</h4>
                 <p className="text-xs md:text-sm text-slate-700 leading-relaxed">{rule.content}</p>

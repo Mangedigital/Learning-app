@@ -1,15 +1,18 @@
 
 import React, { useState } from 'react';
 import { UserRole } from '../types';
-import { ROLE_SCENARIOS } from '../constants';
 import { getReflectionFeedback } from '../services/geminiService';
 
-export const ReflectionModule: React.FC<{ role: UserRole; onComplete: (text: string) => void }> = ({ role, onComplete }) => {
+export const ReflectionModule: React.FC<{
+  role: UserRole;
+  roleScenarios: Record<UserRole, string>;
+  onComplete: (text: string) => void;
+}> = ({ role, roleScenarios, onComplete }) => {
   const [reflection, setReflection] = useState('');
   const [feedback, setFeedback] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const scenario = ROLE_SCENARIOS[role] || ROLE_SCENARIOS[UserRole.MANAGER];
+  const scenario = roleScenarios[role] || roleScenarios[UserRole.MANAGER];
 
   const handleSubmit = async () => {
     if (!reflection.trim()) return;

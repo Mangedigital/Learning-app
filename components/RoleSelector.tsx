@@ -2,7 +2,7 @@
 import React from 'react';
 import { UserRole } from '../types';
 
-export const RoleSelector: React.FC<{ onSelect: (role: UserRole) => void }> = ({ onSelect }) => (
+export const RoleSelector: React.FC<{ roles?: UserRole[]; onSelect: (role: UserRole) => void }> = ({ roles = Object.values(UserRole), onSelect }) => (
   <div className="min-h-[80vh] flex items-center justify-center p-4 md:p-6">
     <div className="max-w-xl w-full bg-white rounded-2xl shadow-xl overflow-hidden">
       <div className="bg-[#004b89] p-6 md:p-8 text-white text-center">
@@ -13,7 +13,7 @@ export const RoleSelector: React.FC<{ onSelect: (role: UserRole) => void }> = ({
         </div>
       </div>
       <div className="p-5 md:p-8 space-y-3 md:space-y-4">
-        {Object.values(UserRole).map((role) => (
+        {roles.map((role) => (
           <button
             key={role}
             onClick={() => onSelect(role)}

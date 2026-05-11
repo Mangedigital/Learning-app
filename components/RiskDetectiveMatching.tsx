@@ -1,13 +1,17 @@
 
 import React, { useState, useMemo } from 'react';
-import { UserRole } from '../types';
-import { GOLDEN_RULES, MATCHING_SCENARIOS } from '../constants';
+import { GoldenRule, MatchingScenario, UserRole } from '../types';
 import { SourceModal } from './SourceModal';
 
-export const RiskDetectiveMatching: React.FC<{ role: UserRole; onComplete: () => void }> = ({ role, onComplete }) => {
+export const RiskDetectiveMatching: React.FC<{
+  role: UserRole;
+  rules: GoldenRule[];
+  scenarios: MatchingScenario[];
+  onComplete: () => void;
+}> = ({ role, rules, scenarios, onComplete }) => {
   const roleScenarios = useMemo(() => {
-    return MATCHING_SCENARIOS.filter(s => s.role === role);
-  }, [role]);
+    return scenarios.filter(s => s.role === role);
+  }, [role, scenarios]);
 
   const [currentIdx, setCurrentIdx] = useState(0);
   const [selectedRuleId, setSelectedRuleId] = useState<number | null>(null);
@@ -44,7 +48,7 @@ export const RiskDetectiveMatching: React.FC<{ role: UserRole; onComplete: () =>
 
   const getSocraticHint = (ruleId: number) => {
     if (ruleId === scenario?.correctRuleId) return null;
-    const rule = GOLDEN_RULES.find(r => r.id === ruleId);
+    const rule = rules.find(r => r.id === ruleId);
     if (!rule) return "Försök igen!";
     
     return `Regel ${ruleId} (${rule.title}) är relevant, men det finns en annan regel som är det primära svaret för detta case. Kolla "Läs regeln" igen!`;
@@ -58,15 +62,16 @@ export const RiskDetectiveMatching: React.FC<{ role: UserRole; onComplete: () =>
     </div>
   );
 
-  const availableRules = scenario.options 
-    ? GOLDEN_RULES.filter(r => scenario.options?.includes(r.id))
-    : GOLDEN_RULES;
+  const availableRules = scenario.options
+    ? rules.filter(r => scenario.options?.includes(r.id))
+    : rules;
 
   return (
     <div className="space-y-6 md:space-y-8">
       <SourceModal 
         isOpen={isClueOpen} 
         onClose={() => { setIsClueOpen(false); setClueViewed(true); }} 
+        rules={rules}
         clue={scenario.clue} 
       />
       

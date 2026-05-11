@@ -1,16 +1,15 @@
 
 import React, { useState, useMemo } from 'react';
-import { UserRole } from '../types';
-import { QUIZ_QUESTIONS } from '../constants';
+import { QuizQuestion, UserRole } from '../types';
 
-export const QuizModule: React.FC<{ role: UserRole; onComplete: () => void }> = ({ role, onComplete }) => {
+export const QuizModule: React.FC<{ role: UserRole; questions: QuizQuestion[]; onComplete: () => void }> = ({ role, questions, onComplete }) => {
   const [currentIdx, setCurrentIdx] = useState(0);
   const [selected, setSelected] = useState<boolean | null>(null);
   const [showExplanation, setShowExplanation] = useState(false);
 
   const filteredQuestions = useMemo(() => {
-    return QUIZ_QUESTIONS.filter(q => q.role === role);
-  }, [role]);
+    return questions.filter(q => q.role === role);
+  }, [role, questions]);
 
   const question = filteredQuestions[currentIdx];
   const ruleLabel = question ? `Regel ${question.ruleIds.join(' och ')}` : '';

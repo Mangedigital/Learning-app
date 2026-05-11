@@ -1,8 +1,4 @@
-export interface ResourceLink {
-  title: string;
-  href: string;
-  format: 'PDF' | 'Word' | 'Link';
-}
+import { ResourceLink } from './types';
 
 export const RESOURCE_LINKS: ResourceLink[] = [
   {
