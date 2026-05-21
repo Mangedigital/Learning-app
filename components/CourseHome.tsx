@@ -4,11 +4,11 @@ import { generateCourseFromSource, SUPPORTED_SOURCE_ACCEPT } from '../services/c
 import type { CourseGenerationProgress } from '../services/courseGenerator';
 
 const GENERATION_STEPS = [
-  { event: 'received', label: 'Tar emot källfil och metadata' },
-  { event: 'validated', label: 'Kontrollerar filtyp och storlek' },
-  { event: 'calling_model', label: 'Tar fram de viktigaste delarna av dokumentet' },
-  { event: 'model_response', label: 'Tar emot AI-genererat kursinnehåll' },
-  { event: 'parsing', label: 'Paketerar kursutkastet för granskning' },
+  { event: 'received', label: 'Läser in källfil och skapar jobb' },
+  { event: 'validated', label: 'Startar background-generering' },
+  { event: 'calling_model', label: 'Laddar upp källan till Gemini File API' },
+  { event: 'model_response', label: 'Gemini bygger kursstruktur och innehåll' },
+  { event: 'parsing', label: 'Sparar kursutkastet för granskning' },
   { event: 'complete', label: 'Kursutkast klart' },
 ];
 

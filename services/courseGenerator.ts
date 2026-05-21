@@ -9,6 +9,7 @@ export type CourseGenerationProgress = {
   step?: string;
   message?: string;
   course?: MicroCourse;
+  jobId?: string;
   [key: string]: unknown;
 };
 
@@ -45,22 +46,6 @@ const readErrorMessage = async (response: Response) => {
   }
 };
 
-const parseSseBlock = (block: string): CourseGenerationProgress | null => {
-  const lines = block.split('\n').map((line) => line.trimEnd());
-  const eventLine = lines.find((line) => line.startsWith('event:'));
-  const dataLines = lines.filter((line) => line.startsWith('data:'));
-  if (!eventLine || dataLines.length === 0) return null;
-
-  const event = eventLine.replace(/^event:\s*/, '');
-  const dataText = dataLines.map((line) => line.replace(/^data:\s*/, '')).join('\n');
-  try {
-    const data = JSON.parse(dataText);
-    return { event, ...data };
-  } catch {
-    return { event, message: dataText };
-  }
-};
-
 const formatStreamError = (event: CourseGenerationProgress) => {
   const details = [
     event.step ? `Steg: ${event.step}` : '',
@@ -75,17 +60,50 @@ const formatStreamError = (event: CourseGenerationProgress) => {
   return [event.message || 'Kunde inte generera kursutkast.', ...details].join('\n');
 };
 
+const createJobId = () => {
+  if ('randomUUID' in crypto) return crypto.randomUUID();
+  return `job-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+};
+
+const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
+type JobStatusResponse = {
+  status: 'processing' | 'complete' | 'failed';
+  course?: MicroCourse;
+  error?: string;
+  message?: string;
+  metadata?: Record<string, unknown>;
+};
+
+const getJobStatus = async (jobId: string): Promise<JobStatusResponse> => {
+  const response = await fetch(`/api/get-job-status?job_id=${encodeURIComponent(jobId)}`);
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+  return response.json();
+};
+
 export const generateCourseFromSource = async (
   file: File,
   sourceTitle: string,
   onProgress?: (event: CourseGenerationProgress) => void
 ): Promise<MicroCourse> => {
+  const jobId = createJobId();
   const sourceText = isTextSource(file) ? await fileToText(file) : undefined;
   const fileBase64 = sourceText ? undefined : await fileToBase64(file);
-  const response = await fetch('/api/generate-course', {
+
+  onProgress?.({
+    event: 'received',
+    step: 'received',
+    message: 'Källfilen är läst i webbläsaren och ett serverjobb skapas.',
+    jobId,
+  });
+
+  const response = await fetch('/.netlify/functions/generate-course-background', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
+      jobId,
       sourceTitle,
       fileName: file.name,
       fileMimeType: file.type || 'application/octet-stream',
@@ -98,51 +116,49 @@ export const generateCourseFromSource = async (
     throw new Error(await readErrorMessage(response));
   }
 
-  if (!response.body) {
-    throw new Error('Generatorn returnerade ingen läsbar stream.');
-  }
+  onProgress?.({
+    event: 'validated',
+    step: 'validated',
+    message: 'Background-jobbet är startat. Appen pollar serverstatus var tredje sekund.',
+    jobId,
+  });
 
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-  let course: MicroCourse | null = null;
+  const maxPolls = 300;
+  for (let pollCount = 0; pollCount < maxPolls; pollCount += 1) {
+    await wait(3000);
+    const status = await getJobStatus(jobId);
 
-  const handleEvent = (event: CourseGenerationProgress) => {
-    onProgress?.(event);
-
-    if (event.event === 'error') {
-      throw new Error(formatStreamError(event));
+    if (status.status === 'complete') {
+      if (!status.course) throw new Error('Jobbet markerades klart utan kursutkast.');
+      onProgress?.({
+        event: 'complete',
+        step: 'complete',
+        message: 'Kursutkastet är klart för granskning.',
+        jobId,
+        course: status.course,
+      });
+      return status.course;
     }
 
-    if (event.event === 'complete' && event.course) {
-      course = event.course;
-    }
-  };
-
-  while (true) {
-    const { value, done } = await reader.read();
-    buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
-
-    const blocks = buffer.split(/\n\n/);
-    buffer = blocks.pop() || '';
-
-    for (const block of blocks) {
-      const event = parseSseBlock(block);
-      if (!event) continue;
-      handleEvent(event);
+    if (status.status === 'failed') {
+      throw new Error(formatStreamError({
+        event: 'error',
+        step: 'background',
+        message: status.error || 'Background-jobbet misslyckades.',
+        jobId,
+      }));
     }
 
-    if (done) break;
+    const progressEvent = pollCount < 2 ? 'calling_model' : pollCount < 8 ? 'model_response' : 'parsing';
+    onProgress?.({
+      event: progressEvent,
+      step: progressEvent,
+      message: status.message || 'Background-jobbet bearbetar källan med Gemini File API.',
+      jobId,
+      elapsedSeconds: (pollCount + 1) * 3,
+      metadata: status.metadata,
+    });
   }
 
-  if (buffer.trim()) {
-    const event = parseSseBlock(buffer);
-    if (event) handleEvent(event);
-  }
-
-  if (!course) {
-    throw new Error('Generatorn avslutades utan färdigt kursutkast.');
-  }
-
-  return course;
+  throw new Error('Generatorjobbet tog längre än 15 minuter och avbröts i klienten.');
 };
