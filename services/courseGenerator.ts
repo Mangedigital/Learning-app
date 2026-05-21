@@ -4,6 +4,14 @@ export const SUPPORTED_SOURCE_ACCEPT = '.pdf,.doc,.docx,.md,.txt,application/pdf
 
 const TEXT_FILE_EXTENSIONS = ['.md', '.txt'];
 
+export type CourseGenerationProgress = {
+  event: string;
+  step?: string;
+  message?: string;
+  course?: MicroCourse;
+  [key: string]: unknown;
+};
+
 const fileToBase64 = (file: File): Promise<string> =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -37,7 +45,40 @@ const readErrorMessage = async (response: Response) => {
   }
 };
 
-export const generateCourseFromSource = async (file: File, sourceTitle: string): Promise<MicroCourse> => {
+const parseSseBlock = (block: string): CourseGenerationProgress | null => {
+  const lines = block.split('\n').map((line) => line.trimEnd());
+  const eventLine = lines.find((line) => line.startsWith('event:'));
+  const dataLines = lines.filter((line) => line.startsWith('data:'));
+  if (!eventLine || dataLines.length === 0) return null;
+
+  const event = eventLine.replace(/^event:\s*/, '');
+  const dataText = dataLines.map((line) => line.replace(/^data:\s*/, '')).join('\n');
+  try {
+    const data = JSON.parse(dataText);
+    return { event, ...data };
+  } catch {
+    return { event, message: dataText };
+  }
+};
+
+const formatStreamError = (event: CourseGenerationProgress) => {
+  const details = [
+    event.step ? `Steg: ${event.step}` : '',
+    typeof event.geminiStatus === 'number' ? `Gemini-status: ${event.geminiStatus}` : '',
+    typeof event.bodySummary === 'string' ? `Svar: ${event.bodySummary}` : '',
+    typeof event.responseTextLength === 'number' ? `Svarslängd: ${event.responseTextLength}` : '',
+    typeof event.responseStart === 'string' ? `Start: ${event.responseStart}` : '',
+    typeof event.responseEnd === 'string' ? `Slut: ${event.responseEnd}` : '',
+  ].filter(Boolean);
+
+  return [event.message || 'Kunde inte generera kursutkast.', ...details].join('\n');
+};
+
+export const generateCourseFromSource = async (
+  file: File,
+  sourceTitle: string,
+  onProgress?: (event: CourseGenerationProgress) => void
+): Promise<MicroCourse> => {
   const sourceText = isTextSource(file) ? await fileToText(file) : undefined;
   const fileBase64 = sourceText ? undefined : await fileToBase64(file);
   const response = await fetch('/api/generate-course', {
@@ -56,6 +97,43 @@ export const generateCourseFromSource = async (file: File, sourceTitle: string):
     throw new Error(await readErrorMessage(response));
   }
 
-  const data = await response.json();
-  return data.course as MicroCourse;
+  if (!response.body) {
+    throw new Error('Generatorn returnerade ingen läsbar stream.');
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let course: MicroCourse | null = null;
+
+  while (true) {
+    const { value, done } = await reader.read();
+    buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+
+    const blocks = buffer.split(/\n\n/);
+    buffer = blocks.pop() || '';
+
+    for (const block of blocks) {
+      const event = parseSseBlock(block);
+      if (!event) continue;
+
+      onProgress?.(event);
+
+      if (event.event === 'error') {
+        throw new Error(formatStreamError(event));
+      }
+
+      if (event.event === 'complete' && event.course) {
+        course = event.course;
+      }
+    }
+
+    if (done) break;
+  }
+
+  if (!course) {
+    throw new Error('Generatorn avslutades utan färdigt kursutkast.');
+  }
+
+  return course;
 };

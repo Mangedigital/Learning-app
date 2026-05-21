@@ -1,16 +1,21 @@
 import React, { useMemo, useState } from 'react';
 import { MicroCourse } from '../types';
 import { generateCourseFromSource, SUPPORTED_SOURCE_ACCEPT } from '../services/courseGenerator';
+import type { CourseGenerationProgress } from '../services/courseGenerator';
 
 const GENERATION_STEPS = [
-  'Läser in källfilen',
-  'Tar fram de viktigaste delarna av dokumentet',
-  'Identifierar regler, principer och risker',
-  'Genererar cases till rollerna',
-  'Skapar reflektionsfrågor',
-  'Skapar quiz-frågor',
-  'Paketerar kursutkastet för granskning',
+  { event: 'received', label: 'Tar emot källfil och metadata' },
+  { event: 'validated', label: 'Kontrollerar filtyp och storlek' },
+  { event: 'calling_model', label: 'Tar fram de viktigaste delarna av dokumentet' },
+  { event: 'model_response', label: 'Tar emot AI-genererat kursinnehåll' },
+  { event: 'parsing', label: 'Paketerar kursutkastet för granskning' },
+  { event: 'complete', label: 'Kursutkast klart' },
 ];
+
+const EVENT_TO_STEP_INDEX = GENERATION_STEPS.reduce<Record<string, number>>((acc, step, index) => {
+  acc[step.event] = index;
+  return acc;
+}, { working: 2 });
 
 export const CourseHome: React.FC<{
   courses: MicroCourse[];
@@ -22,29 +27,30 @@ export const CourseHome: React.FC<{
   const [draftText, setDraftText] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [activeStep, setActiveStep] = useState(-1);
+  const [progressEvents, setProgressEvents] = useState<CourseGenerationProgress[]>([]);
   const publishedCourses = useMemo(() => courses.filter((course) => course.status === 'published'), [courses]);
+  const activeStep = useMemo(() => {
+    const latest = progressEvents[progressEvents.length - 1];
+    return latest ? EVENT_TO_STEP_INDEX[latest.event] ?? -1 : -1;
+  }, [progressEvents]);
+  const latestProgress = progressEvents[progressEvents.length - 1];
 
   const handleGenerate = async () => {
     if (!file) return;
     setLoading(true);
     setError('');
     setDraftText('');
-    setActiveStep(0);
-
-    const progressTimer = window.setInterval(() => {
-      setActiveStep((step) => Math.min(step + 1, GENERATION_STEPS.length - 1));
-    }, 3500);
+    setProgressEvents([]);
 
     try {
-      const draft = await generateCourseFromSource(file, sourceTitle.trim() || file.name);
-      setActiveStep(GENERATION_STEPS.length - 1);
+      const draft = await generateCourseFromSource(file, sourceTitle.trim() || file.name, (progressEvent) => {
+        setProgressEvents((events) => [...events, progressEvent]);
+      });
       setDraftText(JSON.stringify(draft, null, 2));
     } catch (generationError) {
       const message = generationError instanceof Error ? generationError.message : 'Kunde inte generera kursutkast.';
       setError(message);
     } finally {
-      window.clearInterval(progressTimer);
       setLoading(false);
     }
   };
@@ -139,20 +145,29 @@ export const CourseHome: React.FC<{
             <p className="text-xs font-black uppercase tracking-widest text-blue-200 mb-3">Genereringsprocess</p>
             <div className="space-y-2">
               {GENERATION_STEPS.map((step, index) => (
-                <div key={step} className={`flex items-center gap-3 text-sm ${index <= activeStep ? 'text-white' : 'text-slate-500'}`}>
+                <div key={step.event} className={`flex items-center gap-3 text-sm ${index <= activeStep ? 'text-white' : 'text-slate-500'}`}>
                   <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black ${
                     index < activeStep ? 'bg-green-500 text-white' : index === activeStep ? 'bg-blue-400 text-slate-950' : 'bg-white/10 text-slate-500'
                   }`}>
                     {index < activeStep ? <i className="fa-solid fa-check"></i> : index + 1}
                   </span>
-                  <span>{step}</span>
+                  <span>{step.label}</span>
                 </div>
               ))}
             </div>
+            {latestProgress?.message && (
+              <div className="mt-4 rounded-xl bg-slate-950/40 border border-white/10 p-3 text-xs text-slate-200">
+                <p className="font-bold text-blue-200 mb-1">Senaste serverstatus</p>
+                <p>{latestProgress.message}</p>
+                {typeof latestProgress.elapsedSeconds === 'number' && (
+                  <p className="text-slate-400 mt-1">Väntat {latestProgress.elapsedSeconds} sekunder på modellsvaret.</p>
+                )}
+              </div>
+            )}
           </div>
         )}
 
-        {error && <div className="mb-4 bg-red-500/20 border border-red-300/20 text-red-100 rounded-xl p-3 text-sm">{error}</div>}
+        {error && <div className="mb-4 bg-red-500/20 border border-red-300/20 text-red-100 rounded-xl p-3 text-sm whitespace-pre-wrap">{error}</div>}
 
         {draftText && (
           <div className="space-y-4">

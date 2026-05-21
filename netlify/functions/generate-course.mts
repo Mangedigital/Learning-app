@@ -24,11 +24,48 @@ const ALLOWED_ROLES = [
   "Chef",
 ];
 
+type SseSender = (event: string, data: Record<string, unknown>) => void;
+
 const jsonResponse = (body: Record<string, unknown>, status: number) =>
   new Response(JSON.stringify(body), {
     status,
     headers: { "Content-Type": "application/json" },
   });
+
+const sseResponse = (work: (send: SseSender) => Promise<void>) => {
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(controller) {
+      const send: SseSender = (event, data) => {
+        controller.enqueue(
+          encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+        );
+      };
+
+      try {
+        await work(send);
+      } catch (error) {
+        console.error("Course generation stream error:", error);
+        send("error", {
+          step: "stream",
+          message: error instanceof Error ? error.message : "Okänt serverfel i kursgeneratorn.",
+        });
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    status: 200,
+    headers: {
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      "Connection": "keep-alive",
+      "X-Accel-Buffering": "no",
+    },
+  });
+};
 
 const extractJsonObject = (text: string) => {
   const cleaned = text.replace(/```json|```/g, "").trim();
@@ -56,6 +93,9 @@ const inferMimeType = (fileName: string, fileMimeType: string) => {
 };
 
 const friendlySupportedTypes = () => "PDF, Word (.doc/.docx), Markdown (.md) eller text (.txt)";
+
+const excerpt = (text: string, limit = 700) =>
+  text.length > limit ? `${text.slice(0, limit)}...` : text;
 
 export default async (req: Request, _context: Context) => {
   if (req.method !== "POST") {
@@ -91,33 +131,79 @@ export default async (req: Request, _context: Context) => {
     typeof fileName !== "string" ||
     typeof fileMimeType !== "string"
   ) {
-    return jsonResponse({ error: "Källfilen saknar nödvändig metadata." }, 400);
+    return sseResponse(async (send) => {
+      send("error", { step: "received", message: "Källfilen saknar nödvändig metadata." });
+    });
   }
 
-  const resolvedMimeType = inferMimeType(fileName, fileMimeType);
-  if (!SUPPORTED_MIME_TYPES.has(resolvedMimeType)) {
-    return jsonResponse({ error: `Filtypen stöds inte ännu. Använd ${friendlySupportedTypes()}.` }, 400);
-  }
+  return sseResponse(async (send) => {
+    const resolvedMimeType = inferMimeType(fileName, fileMimeType);
+    const isTextSource = resolvedMimeType === "text/plain" || resolvedMimeType === "text/markdown";
+    const sourceTextLength = typeof sourceText === "string" ? sourceText.length : 0;
+    const fileBase64Length = typeof fileBase64 === "string" ? fileBase64.length : 0;
+    const approximateFileBytes = fileBase64Length ? Math.round((fileBase64Length * 3) / 4) : sourceTextLength;
 
-  const isTextSource = resolvedMimeType === "text/plain" || resolvedMimeType === "text/markdown";
-  if (isTextSource && typeof sourceText !== "string") {
-    return jsonResponse({ error: "Textkällan kunde inte läsas av webbläsaren." }, 400);
-  }
+    send("received", {
+      step: "received",
+      message: "Källmetadata mottagen.",
+      sourceTitle,
+      fileName,
+      fileMimeType,
+      resolvedMimeType,
+      fileBase64Length,
+      sourceTextLength,
+      approximateFileBytes,
+    });
 
-  if (!isTextSource && typeof fileBase64 !== "string") {
-    return jsonResponse({ error: "Dokumentet kunde inte skickas till generatorn." }, 400);
-  }
+    if (!SUPPORTED_MIME_TYPES.has(resolvedMimeType)) {
+      send("error", {
+        step: "validated",
+        message: `Filtypen stöds inte ännu. Använd ${friendlySupportedTypes()}.`,
+        resolvedMimeType,
+      });
+      return;
+    }
 
-  const trimmedSourceText = typeof sourceText === "string" ? sourceText.trim().substring(0, MAX_TEXT_LENGTH) : "";
-  if (isTextSource && trimmedSourceText.length < 50) {
-    return jsonResponse({ error: "Textkällan är för kort för att skapa en mikrokurs." }, 400);
-  }
+    if (isTextSource && typeof sourceText !== "string") {
+      send("error", { step: "validated", message: "Textkällan kunde inte läsas av webbläsaren." });
+      return;
+    }
 
-  if (!isTextSource && typeof fileBase64 === "string" && fileBase64.length > MAX_FILE_SIZE_BASE64) {
-    return jsonResponse({ error: "Filen är för stor för prototypen. Testa en fil under cirka 6 MB." }, 413);
-  }
+    if (!isTextSource && typeof fileBase64 !== "string") {
+      send("error", { step: "validated", message: "Dokumentet kunde inte skickas till generatorn." });
+      return;
+    }
 
-  const systemInstruction = `Du skapar svenska mikrolärandekurser från en källfil.
+    const trimmedSourceText = typeof sourceText === "string" ? sourceText.trim().substring(0, MAX_TEXT_LENGTH) : "";
+    if (isTextSource && trimmedSourceText.length < 50) {
+      send("error", {
+        step: "validated",
+        message: "Textkällan är för kort för att skapa en mikrokurs.",
+        sourceTextLength,
+      });
+      return;
+    }
+
+    if (!isTextSource && typeof fileBase64 === "string" && fileBase64.length > MAX_FILE_SIZE_BASE64) {
+      send("error", {
+        step: "validated",
+        message: "Filen är för stor för prototypen. Testa en fil under cirka 6 MB.",
+        fileBase64Length,
+        maxFileSizeBase64: MAX_FILE_SIZE_BASE64,
+      });
+      return;
+    }
+
+    send("validated", {
+      step: "validated",
+      message: "Filtyp och storlek är godkända.",
+      resolvedMimeType,
+      inputMode: isTextSource ? "text" : "inline_data",
+      trimmedSourceTextLength: trimmedSourceText.length,
+      fileBase64Length,
+    });
+
+    const systemInstruction = `Du skapar svenska mikrolärandekurser från en källfil.
 Returnera endast strikt JSON utan markdown. Inga kommentarer.
 Kursen ska vara ett faktakontrollerbart utkast som en administratör granskar innan publicering.
 Använd endast dessa roller: ${ALLOWED_ROLES.join(", ")}.
@@ -129,7 +215,7 @@ Skapa samma struktur för alla roller:
 - 5 sant/falskt quizfrågor per roll
 Alla scenarier och quizförklaringar ska vara korta, praktiska och källnära.`;
 
-  const prompt = `Skapa ett MicroCourse JSON-objekt från källan "${sourceTitle}".
+    const prompt = `Skapa ett MicroCourse JSON-objekt från källan "${sourceTitle}".
 JSON-format:
 {
   "id": "url-vanlig-id",
@@ -152,60 +238,141 @@ JSON-format:
   "resources": []
 }`;
 
-  const sourcePart = isTextSource
-    ? { text: `Källtext:\n\n${trimmedSourceText}` }
-    : {
-        inline_data: {
-          mime_type: resolvedMimeType,
-          data: fileBase64 as string,
-        },
-      };
+    const sourcePart = isTextSource
+      ? { text: `Källtext:\n\n${trimmedSourceText}` }
+      : {
+          inline_data: {
+            mime_type: resolvedMimeType,
+            data: fileBase64 as string,
+          },
+        };
 
-  const geminiBody = {
-    system_instruction: {
-      parts: [{ text: systemInstruction }],
-    },
-    contents: [
-      {
-        parts: [
-          { text: prompt },
-          sourcePart,
-        ],
+    const geminiBody = {
+      system_instruction: {
+        parts: [{ text: systemInstruction }],
       },
-    ],
-    generationConfig: {
-      temperature: 0.2,
-      maxOutputTokens: 8192,
-      response_mime_type: "application/json",
-    },
-  };
+      contents: [
+        {
+          parts: [
+            { text: prompt },
+            sourcePart,
+          ],
+        },
+      ],
+      generationConfig: {
+        temperature: 0.2,
+        maxOutputTokens: 8192,
+        response_mime_type: "application/json",
+      },
+    };
 
-  try {
-    const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(geminiBody),
+    send("calling_model", {
+      step: "calling_model",
+      message: "Gemini-anrop startar.",
+      model: "gemini-2.5-flash",
+      sourcePayloadMode: isTextSource ? "text" : "inline_data",
+    });
+
+    let heartbeatCount = 0;
+    const heartbeat = setInterval(() => {
+      heartbeatCount += 1;
+      send("working", {
+        step: "calling_model",
+        message: "Gemini bearbetar källan och bygger kursutkastet.",
+        elapsedSeconds: heartbeatCount * 5,
+      });
+    }, 5000);
+
+    let response: Response;
+    try {
+      response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(geminiBody),
+      });
+    } catch (error) {
+      clearInterval(heartbeat);
+      console.error("Gemini course generation request failed:", error);
+      send("error", {
+        step: "calling_model",
+        message: error instanceof Error ? error.message : "Gemini-anropet misslyckades innan svar mottogs.",
+      });
+      return;
+    }
+    clearInterval(heartbeat);
+
+    send("model_response", {
+      step: "model_response",
+      message: "Gemini-svar mottaget.",
+      geminiStatus: response.status,
+      geminiOk: response.ok,
     });
 
     if (!response.ok) {
       const errorText = await response.text();
       console.error("Gemini course generation error:", response.status, errorText);
-      return jsonResponse(
-        { error: `Gemini kunde inte skapa kursen (${response.status}): ${summarizeGeminiError(errorText)}` },
-        502
-      );
+      send("error", {
+        step: "model_response",
+        message: `Gemini kunde inte skapa kursen (${response.status}): ${summarizeGeminiError(errorText)}`,
+        geminiStatus: response.status,
+        bodySummary: excerpt(errorText),
+      });
+      return;
     }
 
-    const data = await response.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) return jsonResponse({ error: "Gemini returnerade inget kursutkast." }, 502);
+    let data: Record<string, unknown>;
+    try {
+      data = await response.json();
+    } catch (error) {
+      console.error("Gemini response JSON parse error:", error);
+      send("error", {
+        step: "model_response",
+        message: "Gemini-svaret kunde inte läsas som JSON.",
+        geminiStatus: response.status,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return;
+    }
 
-    const course = extractJsonObject(text);
-    return jsonResponse({ course }, 200);
-  } catch (error) {
-    console.error("Course generation error:", error);
-    return jsonResponse({ error: "Kursutkastet kunde inte tolkas som giltig JSON." }, 500);
-  }
+    const text = (data as any)?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!text || typeof text !== "string") {
+      send("error", {
+        step: "model_response",
+        message: "Gemini returnerade inget kursutkast.",
+        geminiStatus: response.status,
+        responseKeys: Object.keys(data),
+      });
+      return;
+    }
+
+    send("parsing", {
+      step: "parsing",
+      message: "Tolkar kursutkastets JSON.",
+      responseTextLength: text.length,
+    });
+
+    let course: unknown;
+    try {
+      course = extractJsonObject(text);
+    } catch (error) {
+      console.error("Course generation JSON extraction error:", error);
+      send("error", {
+        step: "parsing",
+        message: "Kursutkastet kunde inte tolkas som giltig JSON.",
+        responseTextLength: text.length,
+        responseStart: excerpt(text.slice(0, 1000), 1000),
+        responseEnd: excerpt(text.slice(-1000), 1000),
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return;
+    }
+
+    send("complete", {
+      step: "complete",
+      message: "Kursutkastet är klart för granskning.",
+      course,
+    });
+  });
 };
 
 export const config = {
