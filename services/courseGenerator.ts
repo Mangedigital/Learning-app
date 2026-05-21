@@ -65,6 +65,7 @@ const formatStreamError = (event: CourseGenerationProgress) => {
   const details = [
     event.step ? `Steg: ${event.step}` : '',
     typeof event.geminiStatus === 'number' ? `Gemini-status: ${event.geminiStatus}` : '',
+    typeof event.timeoutMs === 'number' ? `Timeout: ${Math.round(event.timeoutMs / 1000)} sekunder` : '',
     typeof event.bodySummary === 'string' ? `Svar: ${event.bodySummary}` : '',
     typeof event.responseTextLength === 'number' ? `Svarslängd: ${event.responseTextLength}` : '',
     typeof event.responseStart === 'string' ? `Start: ${event.responseStart}` : '',
@@ -106,6 +107,18 @@ export const generateCourseFromSource = async (
   let buffer = '';
   let course: MicroCourse | null = null;
 
+  const handleEvent = (event: CourseGenerationProgress) => {
+    onProgress?.(event);
+
+    if (event.event === 'error') {
+      throw new Error(formatStreamError(event));
+    }
+
+    if (event.event === 'complete' && event.course) {
+      course = event.course;
+    }
+  };
+
   while (true) {
     const { value, done } = await reader.read();
     buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
@@ -116,19 +129,15 @@ export const generateCourseFromSource = async (
     for (const block of blocks) {
       const event = parseSseBlock(block);
       if (!event) continue;
-
-      onProgress?.(event);
-
-      if (event.event === 'error') {
-        throw new Error(formatStreamError(event));
-      }
-
-      if (event.event === 'complete' && event.course) {
-        course = event.course;
-      }
+      handleEvent(event);
     }
 
     if (done) break;
+  }
+
+  if (buffer.trim()) {
+    const event = parseSseBlock(buffer);
+    if (event) handleEvent(event);
   }
 
   if (!course) {

@@ -2,6 +2,7 @@ import type { Context } from "@netlify/functions";
 
 const GEMINI_API_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+const GEMINI_TIMEOUT_MS = 27_000;
 const MAX_FILE_SIZE_BASE64 = 8_000_000;
 const MAX_TEXT_LENGTH = 120_000;
 const SUPPORTED_MIME_TYPES = new Set([
@@ -284,22 +285,34 @@ JSON-format:
     }, 5000);
 
     let response: Response;
+    const abortController = new AbortController();
+    const timeout = setTimeout(() => abortController.abort(), GEMINI_TIMEOUT_MS);
     try {
       response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(geminiBody),
+        signal: abortController.signal,
       });
     } catch (error) {
       clearInterval(heartbeat);
+      clearTimeout(timeout);
       console.error("Gemini course generation request failed:", error);
+      const timedOut = error instanceof DOMException && error.name === "AbortError";
       send("error", {
         step: "calling_model",
-        message: error instanceof Error ? error.message : "Gemini-anropet misslyckades innan svar mottogs.",
+        message: timedOut
+          ? "Gemini hann inte skapa kursutkastet inom Netlifys gräns för synkrona funktioner. Använd en kortare källa eller flytta genereringen till en Background Function."
+          : error instanceof Error ? error.message : "Gemini-anropet misslyckades innan svar mottogs.",
+        timeoutMs: timedOut ? GEMINI_TIMEOUT_MS : undefined,
+        sourcePayloadMode: isTextSource ? "text" : "inline_data",
+        fileBase64Length,
+        trimmedSourceTextLength: trimmedSourceText.length,
       });
       return;
     }
     clearInterval(heartbeat);
+    clearTimeout(timeout);
 
     send("model_response", {
       step: "model_response",
