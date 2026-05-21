@@ -49,6 +49,7 @@ const readErrorMessage = async (response: Response) => {
 const formatStreamError = (event: CourseGenerationProgress) => {
   const details = [
     event.step ? `Steg: ${event.step}` : '',
+    event.jobId ? `Jobb: ${event.jobId}` : '',
     typeof event.geminiStatus === 'number' ? `Gemini-status: ${event.geminiStatus}` : '',
     typeof event.timeoutMs === 'number' ? `Timeout: ${Math.round(event.timeoutMs / 1000)} sekunder` : '',
     typeof event.bodySummary === 'string' ? `Svar: ${event.bodySummary}` : '',
@@ -149,7 +150,15 @@ export const generateCourseFromSource = async (
       }));
     }
 
-    const progressEvent = pollCount < 2 ? 'calling_model' : pollCount < 8 ? 'model_response' : 'parsing';
+    const stage = typeof status.metadata?.stage === 'string' ? status.metadata.stage : '';
+    const progressEvent =
+      stage === 'uploading_file' || stage === 'file_uploaded' || stage === 'preparing_text'
+        ? 'calling_model'
+        : stage === 'generating_course' || stage === 'retrying'
+          ? 'model_response'
+          : stage === 'parsing_response'
+            ? 'parsing'
+            : pollCount < 2 ? 'calling_model' : pollCount < 8 ? 'model_response' : 'parsing';
     onProgress?.({
       event: progressEvent,
       step: progressEvent,

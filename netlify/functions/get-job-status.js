@@ -32,6 +32,7 @@ export default async (req) => {
 
   return jsonResponse({
     status: "processing",
+    message: job.metadata?.message || "Background-jobbet bearbetar källan.",
     metadata: job.metadata,
     updatedAt: job.updatedAt,
   });

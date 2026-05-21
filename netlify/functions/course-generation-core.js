@@ -1,6 +1,7 @@
 const GEMINI_MODEL = "gemini-2.5-flash";
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 const GEMINI_FILE_UPLOAD_URL = "https://generativelanguage.googleapis.com/upload/v1beta/files";
+const GEMINI_RETRY_DELAYS_MS = [1_500, 4_000, 8_000];
 const MAX_FILE_SIZE_BASE64 = 8_000_000;
 const MAX_TEXT_LENGTH = 120_000;
 const SUPPORTED_MIME_TYPES = new Set([
@@ -102,6 +103,40 @@ export const summarizeGeminiError = (errorText) => {
 export const excerpt = (text, limit = 700) =>
   text.length > limit ? `${text.slice(0, limit)}...` : text;
 
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const isRetryableStatus = (status) => status === 429 || status === 503 || status >= 500;
+
+const fetchWithRetry = async (label, requestFactory, onProgress) => {
+  let lastResponse;
+
+  for (let attempt = 0; attempt <= GEMINI_RETRY_DELAYS_MS.length; attempt += 1) {
+    const response = await requestFactory();
+    lastResponse = response;
+
+    if (!isRetryableStatus(response.status) || attempt === GEMINI_RETRY_DELAYS_MS.length) {
+      return response;
+    }
+
+    const retryAfterHeader = response.headers.get("retry-after");
+    const retryAfterSeconds = retryAfterHeader ? Number(retryAfterHeader) : NaN;
+    const delayMs = Number.isFinite(retryAfterSeconds)
+      ? Math.max(1_000, retryAfterSeconds * 1000)
+      : GEMINI_RETRY_DELAYS_MS[attempt];
+
+    onProgress?.({
+      stage: "retrying",
+      message: `${label} fick ${response.status}. Försöker igen om ${Math.round(delayMs / 1000)} sekunder.`,
+      attempt: attempt + 1,
+      status: response.status,
+    });
+
+    await wait(delayMs);
+  }
+
+  return lastResponse;
+};
+
 const buildInstructions = ({ sourceTitle, fileName }) => {
   const systemInstruction = `Du skapar svenska mikrolärandekurser från en källfil.
 Returnera endast strikt JSON utan markdown. Inga kommentarer.
@@ -141,20 +176,30 @@ JSON-format:
   return { systemInstruction, prompt };
 };
 
-const uploadGeminiFile = async ({ apiKey, fileName, mimeType, fileBase64 }) => {
+const uploadGeminiFile = async ({ apiKey, fileName, mimeType, fileBase64, onProgress }) => {
   const bytes = Buffer.from(fileBase64, "base64");
-  const startResponse = await fetch(GEMINI_FILE_UPLOAD_URL, {
-    method: "POST",
-    headers: {
-      "x-goog-api-key": apiKey,
-      "X-Goog-Upload-Protocol": "resumable",
-      "X-Goog-Upload-Command": "start",
-      "X-Goog-Upload-Header-Content-Length": String(bytes.byteLength),
-      "X-Goog-Upload-Header-Content-Type": mimeType,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ file: { display_name: fileName } }),
+  onProgress?.({
+    stage: "uploading_file",
+    message: "Startar uppladdning till Gemini File API.",
+    byteLength: bytes.byteLength,
+    mimeType,
   });
+
+  const startResponse = await fetchWithRetry("Gemini File API start", () =>
+    fetch(GEMINI_FILE_UPLOAD_URL, {
+      method: "POST",
+      headers: {
+        "x-goog-api-key": apiKey,
+        "X-Goog-Upload-Protocol": "resumable",
+        "X-Goog-Upload-Command": "start",
+        "X-Goog-Upload-Header-Content-Length": String(bytes.byteLength),
+        "X-Goog-Upload-Header-Content-Type": mimeType,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ file: { display_name: fileName } }),
+    }),
+    onProgress
+  );
 
   if (!startResponse.ok) {
     const errorText = await startResponse.text();
@@ -166,15 +211,24 @@ const uploadGeminiFile = async ({ apiKey, fileName, mimeType, fileBase64 }) => {
     throw new Error("Gemini File API returnerade ingen upload URL.");
   }
 
-  const uploadResponse = await fetch(uploadUrl, {
-    method: "POST",
-    headers: {
-      "Content-Length": String(bytes.byteLength),
-      "X-Goog-Upload-Offset": "0",
-      "X-Goog-Upload-Command": "upload, finalize",
-    },
-    body: bytes,
+  onProgress?.({
+    stage: "uploading_file",
+    message: "Skickar dokumentbytes till Gemini File API.",
+    byteLength: bytes.byteLength,
   });
+
+  const uploadResponse = await fetchWithRetry("Gemini File API upload", () =>
+    fetch(uploadUrl, {
+      method: "POST",
+      headers: {
+        "Content-Length": String(bytes.byteLength),
+        "X-Goog-Upload-Offset": "0",
+        "X-Goog-Upload-Command": "upload, finalize",
+      },
+      body: bytes,
+    }),
+    onProgress
+  );
 
   if (!uploadResponse.ok) {
     const errorText = await uploadResponse.text();
@@ -188,14 +242,25 @@ const uploadGeminiFile = async ({ apiKey, fileName, mimeType, fileBase64 }) => {
     throw new Error("Gemini File API returnerade ingen file_uri.");
   }
 
+  onProgress?.({
+    stage: "file_uploaded",
+    message: "Källfilen är uppladdad till Gemini File API.",
+    mimeType: uploadedMimeType,
+  });
+
   return { fileUri, mimeType: uploadedMimeType };
 };
 
-export const generateCourseWithGemini = async ({ apiKey, input, useFileApi = false }) => {
+export const generateCourseWithGemini = async ({ apiKey, input, useFileApi = false, onProgress }) => {
   const { systemInstruction, prompt } = buildInstructions(input);
   let sourcePart;
 
   if (input.isTextSource) {
+    onProgress?.({
+      stage: "preparing_text",
+      message: "Förbereder textkälla för Gemini.",
+      textLength: input.trimmedSourceText.length,
+    });
     sourcePart = { text: `Källtext:\n\n${input.trimmedSourceText}` };
   } else if (useFileApi) {
     const uploadedFile = await uploadGeminiFile({
@@ -203,6 +268,7 @@ export const generateCourseWithGemini = async ({ apiKey, input, useFileApi = fal
       fileName: input.fileName,
       mimeType: input.resolvedMimeType,
       fileBase64: input.fileBase64,
+      onProgress,
     });
     sourcePart = {
       file_data: {
@@ -219,28 +285,37 @@ export const generateCourseWithGemini = async ({ apiKey, input, useFileApi = fal
     };
   }
 
-  const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      system_instruction: {
-        parts: [{ text: systemInstruction }],
-      },
-      contents: [
-        {
-          parts: [
-            { text: prompt },
-            sourcePart,
-          ],
-        },
-      ],
-      generationConfig: {
-        temperature: 0.2,
-        maxOutputTokens: 8192,
-        response_mime_type: "application/json",
-      },
-    }),
+  onProgress?.({
+    stage: "generating_course",
+    message: "Gemini skapar mikrokursutkastet.",
+    model: GEMINI_MODEL,
   });
+
+  const response = await fetchWithRetry("Gemini generateContent", () =>
+    fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        system_instruction: {
+          parts: [{ text: systemInstruction }],
+        },
+        contents: [
+          {
+            parts: [
+              { text: prompt },
+              sourcePart,
+            ],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.2,
+          maxOutputTokens: 8192,
+          response_mime_type: "application/json",
+        },
+      }),
+    }),
+    onProgress
+  );
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -252,6 +327,12 @@ export const generateCourseWithGemini = async ({ apiKey, input, useFileApi = fal
   if (!text || typeof text !== "string") {
     throw new Error("Gemini returnerade inget kursutkast.");
   }
+
+  onProgress?.({
+    stage: "parsing_response",
+    message: "Tolkar Gemini-svaret som kurs-JSON.",
+    responseTextLength: text.length,
+  });
 
   return {
     course: extractJsonObject(text),

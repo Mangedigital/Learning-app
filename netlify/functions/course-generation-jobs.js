@@ -26,6 +26,19 @@ export const createProcessingJob = async (jobId, metadata) => {
   });
 };
 
+export const updateProcessingJob = async (jobId, metadata) => {
+  const existing = await getJob(jobId);
+  await saveJob(jobId, {
+    ...existing,
+    jobId,
+    status: "processing",
+    metadata: {
+      ...(existing?.metadata || {}),
+      ...metadata,
+    },
+  });
+};
+
 export const completeJob = async (jobId, course) => {
   await saveJob(jobId, {
     jobId,

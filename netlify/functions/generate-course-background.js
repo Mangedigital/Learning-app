@@ -1,4 +1,4 @@
-import { completeJob, createProcessingJob, failJob } from "./course-generation-jobs.js";
+import { completeJob, createProcessingJob, failJob, updateProcessingJob } from "./course-generation-jobs.js";
 import { generateCourseWithGemini, validateGenerationInput } from "./course-generation-core.js";
 
 const jsonResponse = (body, status) =>
@@ -45,6 +45,7 @@ export default async (req) => {
       apiKey,
       input,
       useFileApi: !input.isTextSource,
+      onProgress: (metadata) => updateProcessingJob(jobId, metadata),
     });
 
     await completeJob(jobId, course);
