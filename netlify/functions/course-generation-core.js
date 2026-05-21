@@ -1,5 +1,5 @@
-const GEMINI_MODEL = "gemini-2.5-flash";
-const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash-lite"];
+const GEMINI_API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
 const GEMINI_FILE_UPLOAD_URL = "https://generativelanguage.googleapis.com/upload/v1beta/files";
 const GEMINI_RETRY_DELAYS_MS = [1_500, 4_000, 8_000];
 const MAX_FILE_SIZE_BASE64 = 8_000_000;
@@ -285,37 +285,57 @@ export const generateCourseWithGemini = async ({ apiKey, input, useFileApi = fal
     };
   }
 
-  await onProgress?.({
-    stage: "generating_course",
-    message: "Gemini skapar mikrokursutkastet.",
-    model: GEMINI_MODEL,
-  });
+  let response;
+  let selectedModel = GEMINI_MODELS[0];
+  for (const model of GEMINI_MODELS) {
+    selectedModel = model;
+    await onProgress?.({
+      stage: "generating_course",
+      message: `Gemini skapar mikrokursutkastet med ${model}.`,
+      model,
+    });
 
-  const response = await fetchWithRetry("Gemini generateContent", () =>
-    fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        system_instruction: {
-          parts: [{ text: systemInstruction }],
-        },
-        contents: [
-          {
-            parts: [
-              { text: prompt },
-              sourcePart,
-            ],
+    response = await fetchWithRetry("Gemini generateContent", () =>
+      fetch(`${GEMINI_API_BASE_URL}/${model}:generateContent?key=${apiKey}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          system_instruction: {
+            parts: [{ text: systemInstruction }],
           },
-        ],
-        generationConfig: {
-          temperature: 0.2,
-          maxOutputTokens: 8192,
-          response_mime_type: "application/json",
-        },
+          contents: [
+            {
+              parts: [
+                { text: prompt },
+                sourcePart,
+              ],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 8192,
+            response_mime_type: "application/json",
+          },
+        }),
       }),
-    }),
-    onProgress
-  );
+      onProgress
+    );
+
+    if (!isRetryableStatus(response.status) || model === GEMINI_MODELS[GEMINI_MODELS.length - 1]) {
+      break;
+    }
+
+    await onProgress?.({
+      stage: "retrying",
+      message: `${model} är fortfarande otillgänglig (${response.status}). Växlar till nästa Gemini-modell.`,
+      status: response.status,
+      model,
+    });
+  }
+
+  if (!response) {
+    throw new Error("Gemini-anropet kunde inte startas.");
+  }
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -332,10 +352,12 @@ export const generateCourseWithGemini = async ({ apiKey, input, useFileApi = fal
     stage: "parsing_response",
     message: "Tolkar Gemini-svaret som kurs-JSON.",
     responseTextLength: text.length,
+    model: selectedModel,
   });
 
   return {
     course: extractJsonObject(text),
     responseTextLength: text.length,
+    model: selectedModel,
   };
 };
