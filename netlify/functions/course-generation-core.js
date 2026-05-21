@@ -176,6 +176,105 @@ JSON-format:
   return { systemInstruction, prompt };
 };
 
+const generateJsonWithModelFallback = async ({ apiKey, label, prompt, systemInstruction, sourcePart, onProgress }) => {
+  let response;
+  let selectedModel = GEMINI_MODELS[0];
+
+  for (const model of GEMINI_MODELS) {
+    selectedModel = model;
+    await onProgress?.({
+      stage: "generating_course",
+      message: `${label} med ${model}.`,
+      model,
+    });
+
+    response = await fetchWithRetry(label, () =>
+      fetch(`${GEMINI_API_BASE_URL}/${model}:generateContent?key=${apiKey}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          system_instruction: {
+            parts: [{ text: systemInstruction }],
+          },
+          contents: [
+            {
+              parts: [
+                { text: prompt },
+                sourcePart,
+              ],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 16384,
+            response_mime_type: "application/json",
+          },
+        }),
+      }),
+      onProgress
+    );
+
+    if (!isRetryableStatus(response.status) || model === GEMINI_MODELS[GEMINI_MODELS.length - 1]) {
+      break;
+    }
+
+    await onProgress?.({
+      stage: "retrying",
+      message: `${model} är fortfarande otillgänglig (${response.status}). Växlar till nästa Gemini-modell.`,
+      status: response.status,
+      model,
+    });
+  }
+
+  if (!response) {
+    throw new Error("Gemini-anropet kunde inte startas.");
+  }
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Gemini kunde inte skapa kursen (${response.status}): ${summarizeGeminiError(errorText)}`);
+  }
+
+  const data = await response.json();
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text || typeof text !== "string") {
+    throw new Error("Gemini returnerade inget kursutkast.");
+  }
+
+  return { text, model: selectedModel };
+};
+
+const repairCourseJson = async ({ apiKey, text, parseError, onProgress }) => {
+  await onProgress?.({
+    stage: "repairing_json",
+    message: "Gemini-svaret var inte strikt JSON. Försöker reparera JSON-utkastet.",
+    responseTextLength: text.length,
+  });
+
+  const repairPrompt = `Rätta följande nästan-giltiga JSON till strikt giltig JSON.
+Returnera endast JSON. Bevara alla fält och värden. Lägg inte till markdown.
+Parsefel: ${parseError instanceof Error ? parseError.message : String(parseError)}
+
+JSON:
+${text}`;
+
+  const repaired = await generateJsonWithModelFallback({
+    apiKey,
+    label: "Reparerar kurs-JSON",
+    prompt: repairPrompt,
+    systemInstruction: "Du reparerar JSON. Returnera endast strikt giltig JSON utan markdown.",
+    sourcePart: { text: "Returnera ett enda giltigt JSON-objekt." },
+    onProgress,
+  });
+
+  return {
+    course: extractJsonObject(repaired.text),
+    responseTextLength: repaired.text.length,
+    model: repaired.model,
+    repaired: true,
+  };
+};
+
 const uploadGeminiFile = async ({ apiKey, fileName, mimeType, fileBase64, onProgress }) => {
   const bytes = Buffer.from(fileBase64, "base64");
   await onProgress?.({
@@ -285,79 +384,34 @@ export const generateCourseWithGemini = async ({ apiKey, input, useFileApi = fal
     };
   }
 
-  let response;
-  let selectedModel = GEMINI_MODELS[0];
-  for (const model of GEMINI_MODELS) {
-    selectedModel = model;
-    await onProgress?.({
-      stage: "generating_course",
-      message: `Gemini skapar mikrokursutkastet med ${model}.`,
-      model,
-    });
-
-    response = await fetchWithRetry("Gemini generateContent", () =>
-      fetch(`${GEMINI_API_BASE_URL}/${model}:generateContent?key=${apiKey}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          system_instruction: {
-            parts: [{ text: systemInstruction }],
-          },
-          contents: [
-            {
-              parts: [
-                { text: prompt },
-                sourcePart,
-              ],
-            },
-          ],
-          generationConfig: {
-            temperature: 0.2,
-            maxOutputTokens: 8192,
-            response_mime_type: "application/json",
-          },
-        }),
-      }),
-      onProgress
-    );
-
-    if (!isRetryableStatus(response.status) || model === GEMINI_MODELS[GEMINI_MODELS.length - 1]) {
-      break;
-    }
-
-    await onProgress?.({
-      stage: "retrying",
-      message: `${model} är fortfarande otillgänglig (${response.status}). Växlar till nästa Gemini-modell.`,
-      status: response.status,
-      model,
-    });
-  }
-
-  if (!response) {
-    throw new Error("Gemini-anropet kunde inte startas.");
-  }
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Gemini kunde inte skapa kursen (${response.status}): ${summarizeGeminiError(errorText)}`);
-  }
-
-  const data = await response.json();
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text || typeof text !== "string") {
-    throw new Error("Gemini returnerade inget kursutkast.");
-  }
+  const generated = await generateJsonWithModelFallback({
+    apiKey,
+    label: "Gemini skapar mikrokursutkastet",
+    prompt,
+    systemInstruction,
+    sourcePart,
+    onProgress,
+  });
 
   await onProgress?.({
     stage: "parsing_response",
     message: "Tolkar Gemini-svaret som kurs-JSON.",
-    responseTextLength: text.length,
-    model: selectedModel,
+    responseTextLength: generated.text.length,
+    model: generated.model,
   });
 
-  return {
-    course: extractJsonObject(text),
-    responseTextLength: text.length,
-    model: selectedModel,
-  };
+  try {
+    return {
+      course: extractJsonObject(generated.text),
+      responseTextLength: generated.text.length,
+      model: generated.model,
+    };
+  } catch (error) {
+    return repairCourseJson({
+      apiKey,
+      text: generated.text,
+      parseError: error,
+      onProgress,
+    });
+  }
 };
