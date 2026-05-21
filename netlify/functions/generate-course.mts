@@ -3,6 +3,21 @@ import type { Context } from "@netlify/functions";
 const GEMINI_API_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 const MAX_FILE_SIZE_BASE64 = 8_000_000;
+const MAX_TEXT_LENGTH = 120_000;
+const SUPPORTED_MIME_TYPES = new Set([
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "text/markdown",
+  "text/plain",
+]);
+const SUPPORTED_EXTENSIONS: Record<string, string> = {
+  ".pdf": "application/pdf",
+  ".doc": "application/msword",
+  ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ".md": "text/markdown",
+  ".txt": "text/plain",
+};
 const ALLOWED_ROLES = [
   "HR-specialist/Rekryterare",
   "Utvecklingsledare",
@@ -23,6 +38,25 @@ const extractJsonObject = (text: string) => {
   return JSON.parse(cleaned.slice(start, end + 1));
 };
 
+const summarizeGeminiError = (errorText: string) => {
+  try {
+    const parsed = JSON.parse(errorText);
+    const message = parsed?.error?.message;
+    return typeof message === "string" ? message : errorText.slice(0, 300);
+  } catch {
+    return errorText.slice(0, 300);
+  }
+};
+
+const inferMimeType = (fileName: string, fileMimeType: string) => {
+  if (SUPPORTED_MIME_TYPES.has(fileMimeType)) return fileMimeType;
+  const lowerName = fileName.toLowerCase();
+  const extension = Object.keys(SUPPORTED_EXTENSIONS).find((candidate) => lowerName.endsWith(candidate));
+  return extension ? SUPPORTED_EXTENSIONS[extension] : fileMimeType;
+};
+
+const friendlySupportedTypes = () => "PDF, Word (.doc/.docx), Markdown (.md) eller text (.txt)";
+
 export default async (req: Request, _context: Context) => {
   if (req.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405);
@@ -42,6 +76,7 @@ export default async (req: Request, _context: Context) => {
     fileName?: unknown;
     fileMimeType?: unknown;
     fileBase64?: unknown;
+    sourceText?: unknown;
   };
 
   try {
@@ -50,25 +85,39 @@ export default async (req: Request, _context: Context) => {
     return jsonResponse({ error: "Invalid JSON body" }, 400);
   }
 
-  const { sourceTitle, fileName, fileMimeType, fileBase64 } = body;
+  const { sourceTitle, fileName, fileMimeType, fileBase64, sourceText } = body;
   if (
     typeof sourceTitle !== "string" ||
     typeof fileName !== "string" ||
-    typeof fileMimeType !== "string" ||
-    typeof fileBase64 !== "string"
+    typeof fileMimeType !== "string"
   ) {
-    return jsonResponse({ error: "Missing or invalid PDF payload" }, 400);
+    return jsonResponse({ error: "Källfilen saknar nödvändig metadata." }, 400);
   }
 
-  if (fileMimeType !== "application/pdf") {
-    return jsonResponse({ error: "Only PDF files are supported" }, 400);
+  const resolvedMimeType = inferMimeType(fileName, fileMimeType);
+  if (!SUPPORTED_MIME_TYPES.has(resolvedMimeType)) {
+    return jsonResponse({ error: `Filtypen stöds inte ännu. Använd ${friendlySupportedTypes()}.` }, 400);
   }
 
-  if (fileBase64.length > MAX_FILE_SIZE_BASE64) {
-    return jsonResponse({ error: "PDF is too large for this prototype" }, 413);
+  const isTextSource = resolvedMimeType === "text/plain" || resolvedMimeType === "text/markdown";
+  if (isTextSource && typeof sourceText !== "string") {
+    return jsonResponse({ error: "Textkällan kunde inte läsas av webbläsaren." }, 400);
   }
 
-  const systemInstruction = `Du skapar svenska mikrolärandekurser från en PDF-källa.
+  if (!isTextSource && typeof fileBase64 !== "string") {
+    return jsonResponse({ error: "Dokumentet kunde inte skickas till generatorn." }, 400);
+  }
+
+  const trimmedSourceText = typeof sourceText === "string" ? sourceText.trim().substring(0, MAX_TEXT_LENGTH) : "";
+  if (isTextSource && trimmedSourceText.length < 50) {
+    return jsonResponse({ error: "Textkällan är för kort för att skapa en mikrokurs." }, 400);
+  }
+
+  if (!isTextSource && typeof fileBase64 === "string" && fileBase64.length > MAX_FILE_SIZE_BASE64) {
+    return jsonResponse({ error: "Filen är för stor för prototypen. Testa en fil under cirka 6 MB." }, 413);
+  }
+
+  const systemInstruction = `Du skapar svenska mikrolärandekurser från en källfil.
 Returnera endast strikt JSON utan markdown. Inga kommentarer.
 Kursen ska vara ett faktakontrollerbart utkast som en administratör granskar innan publicering.
 Använd endast dessa roller: ${ALLOWED_ROLES.join(", ")}.
@@ -80,7 +129,7 @@ Skapa samma struktur för alla roller:
 - 5 sant/falskt quizfrågor per roll
 Alla scenarier och quizförklaringar ska vara korta, praktiska och källnära.`;
 
-  const prompt = `Skapa ett MicroCourse JSON-objekt från PDF-källan "${sourceTitle}".
+  const prompt = `Skapa ett MicroCourse JSON-objekt från källan "${sourceTitle}".
 JSON-format:
 {
   "id": "url-vanlig-id",
@@ -103,6 +152,15 @@ JSON-format:
   "resources": []
 }`;
 
+  const sourcePart = isTextSource
+    ? { text: `Källtext:\n\n${trimmedSourceText}` }
+    : {
+        inline_data: {
+          mime_type: resolvedMimeType,
+          data: fileBase64 as string,
+        },
+      };
+
   const geminiBody = {
     system_instruction: {
       parts: [{ text: systemInstruction }],
@@ -111,17 +169,13 @@ JSON-format:
       {
         parts: [
           { text: prompt },
-          {
-            inline_data: {
-              mime_type: fileMimeType,
-              data: fileBase64,
-            },
-          },
+          sourcePart,
         ],
       },
     ],
     generationConfig: {
       temperature: 0.2,
+      maxOutputTokens: 8192,
       response_mime_type: "application/json",
     },
   };
@@ -136,18 +190,21 @@ JSON-format:
     if (!response.ok) {
       const errorText = await response.text();
       console.error("Gemini course generation error:", response.status, errorText);
-      return jsonResponse({ error: "Gemini API request failed" }, 502);
+      return jsonResponse(
+        { error: `Gemini kunde inte skapa kursen (${response.status}): ${summarizeGeminiError(errorText)}` },
+        502
+      );
     }
 
     const data = await response.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) return jsonResponse({ error: "No generated course returned" }, 502);
+    if (!text) return jsonResponse({ error: "Gemini returnerade inget kursutkast." }, 502);
 
     const course = extractJsonObject(text);
     return jsonResponse({ course }, 200);
   } catch (error) {
     console.error("Course generation error:", error);
-    return jsonResponse({ error: "Internal server error" }, 500);
+    return jsonResponse({ error: "Kursutkastet kunde inte tolkas som giltig JSON." }, 500);
   }
 };
 

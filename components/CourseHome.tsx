@@ -1,6 +1,16 @@
 import React, { useMemo, useState } from 'react';
 import { MicroCourse } from '../types';
-import { generateCourseFromPdf } from '../services/courseGenerator';
+import { generateCourseFromSource, SUPPORTED_SOURCE_ACCEPT } from '../services/courseGenerator';
+
+const GENERATION_STEPS = [
+  'Läser in källfilen',
+  'Tar fram de viktigaste delarna av dokumentet',
+  'Identifierar regler, principer och risker',
+  'Genererar cases till rollerna',
+  'Skapar reflektionsfrågor',
+  'Skapar quiz-frågor',
+  'Paketerar kursutkastet för granskning',
+];
 
 export const CourseHome: React.FC<{
   courses: MicroCourse[];
@@ -12,19 +22,29 @@ export const CourseHome: React.FC<{
   const [draftText, setDraftText] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [activeStep, setActiveStep] = useState(-1);
   const publishedCourses = useMemo(() => courses.filter((course) => course.status === 'published'), [courses]);
 
   const handleGenerate = async () => {
     if (!file) return;
     setLoading(true);
     setError('');
+    setDraftText('');
+    setActiveStep(0);
+
+    const progressTimer = window.setInterval(() => {
+      setActiveStep((step) => Math.min(step + 1, GENERATION_STEPS.length - 1));
+    }, 3500);
 
     try {
-      const draft = await generateCourseFromPdf(file, sourceTitle.trim() || file.name);
+      const draft = await generateCourseFromSource(file, sourceTitle.trim() || file.name);
+      setActiveStep(GENERATION_STEPS.length - 1);
       setDraftText(JSON.stringify(draft, null, 2));
-    } catch {
-      setError('Kunde inte generera kursutkast. Kontrollera PDF och försök igen.');
+    } catch (generationError) {
+      const message = generationError instanceof Error ? generationError.message : 'Kunde inte generera kursutkast.';
+      setError(message);
     } finally {
+      window.clearInterval(progressTimer);
       setLoading(false);
     }
   };
@@ -87,8 +107,8 @@ export const CourseHome: React.FC<{
             <i className="fa-solid fa-wand-magic-sparkles text-blue-300"></i>
           </div>
           <div>
-            <h2 className="text-xl md:text-2xl font-black">Skapa kursutkast från PDF</h2>
-            <p className="text-sm text-slate-300">AI-genererat innehåll måste granskas innan publicering.</p>
+            <h2 className="text-xl md:text-2xl font-black">Skapa kursutkast från källfil</h2>
+            <p className="text-sm text-slate-300">Stödjer PDF, Word, Markdown och text. AI-genererat innehåll måste granskas innan publicering.</p>
           </div>
         </div>
 
@@ -101,7 +121,7 @@ export const CourseHome: React.FC<{
           />
           <input
             type="file"
-            accept="application/pdf"
+            accept={SUPPORTED_SOURCE_ACCEPT}
             onChange={(event) => setFile(event.target.files?.[0] || null)}
             className="md:col-span-1 bg-white/10 border border-white/10 rounded-xl px-4 py-2.5 text-sm file:mr-3 file:border-0 file:rounded-lg file:bg-blue-100 file:px-3 file:py-1.5 file:text-blue-800"
           />
@@ -113,6 +133,24 @@ export const CourseHome: React.FC<{
             {loading ? 'Genererar...' : 'Generera utkast'}
           </button>
         </div>
+
+        {loading && (
+          <div className="mb-4 bg-white/10 border border-white/10 rounded-2xl p-4">
+            <p className="text-xs font-black uppercase tracking-widest text-blue-200 mb-3">Genereringsprocess</p>
+            <div className="space-y-2">
+              {GENERATION_STEPS.map((step, index) => (
+                <div key={step} className={`flex items-center gap-3 text-sm ${index <= activeStep ? 'text-white' : 'text-slate-500'}`}>
+                  <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black ${
+                    index < activeStep ? 'bg-green-500 text-white' : index === activeStep ? 'bg-blue-400 text-slate-950' : 'bg-white/10 text-slate-500'
+                  }`}>
+                    {index < activeStep ? <i className="fa-solid fa-check"></i> : index + 1}
+                  </span>
+                  <span>{step}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {error && <div className="mb-4 bg-red-500/20 border border-red-300/20 text-red-100 rounded-xl p-3 text-sm">{error}</div>}
 
