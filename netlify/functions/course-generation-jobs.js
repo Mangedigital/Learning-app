@@ -28,6 +28,8 @@ export const createProcessingJob = async (jobId, metadata) => {
 
 export const updateProcessingJob = async (jobId, metadata) => {
   const existing = await getJob(jobId);
+  if (existing?.status === "complete" || existing?.status === "failed") return;
+
   await saveJob(jobId, {
     ...existing,
     jobId,

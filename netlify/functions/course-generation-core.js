@@ -124,7 +124,7 @@ const fetchWithRetry = async (label, requestFactory, onProgress) => {
       ? Math.max(1_000, retryAfterSeconds * 1000)
       : GEMINI_RETRY_DELAYS_MS[attempt];
 
-    onProgress?.({
+    await onProgress?.({
       stage: "retrying",
       message: `${label} fick ${response.status}. Försöker igen om ${Math.round(delayMs / 1000)} sekunder.`,
       attempt: attempt + 1,
@@ -178,7 +178,7 @@ JSON-format:
 
 const uploadGeminiFile = async ({ apiKey, fileName, mimeType, fileBase64, onProgress }) => {
   const bytes = Buffer.from(fileBase64, "base64");
-  onProgress?.({
+  await onProgress?.({
     stage: "uploading_file",
     message: "Startar uppladdning till Gemini File API.",
     byteLength: bytes.byteLength,
@@ -211,7 +211,7 @@ const uploadGeminiFile = async ({ apiKey, fileName, mimeType, fileBase64, onProg
     throw new Error("Gemini File API returnerade ingen upload URL.");
   }
 
-  onProgress?.({
+  await onProgress?.({
     stage: "uploading_file",
     message: "Skickar dokumentbytes till Gemini File API.",
     byteLength: bytes.byteLength,
@@ -242,7 +242,7 @@ const uploadGeminiFile = async ({ apiKey, fileName, mimeType, fileBase64, onProg
     throw new Error("Gemini File API returnerade ingen file_uri.");
   }
 
-  onProgress?.({
+  await onProgress?.({
     stage: "file_uploaded",
     message: "Källfilen är uppladdad till Gemini File API.",
     mimeType: uploadedMimeType,
@@ -256,7 +256,7 @@ export const generateCourseWithGemini = async ({ apiKey, input, useFileApi = fal
   let sourcePart;
 
   if (input.isTextSource) {
-    onProgress?.({
+    await onProgress?.({
       stage: "preparing_text",
       message: "Förbereder textkälla för Gemini.",
       textLength: input.trimmedSourceText.length,
@@ -285,7 +285,7 @@ export const generateCourseWithGemini = async ({ apiKey, input, useFileApi = fal
     };
   }
 
-  onProgress?.({
+  await onProgress?.({
     stage: "generating_course",
     message: "Gemini skapar mikrokursutkastet.",
     model: GEMINI_MODEL,
@@ -328,7 +328,7 @@ export const generateCourseWithGemini = async ({ apiKey, input, useFileApi = fal
     throw new Error("Gemini returnerade inget kursutkast.");
   }
 
-  onProgress?.({
+  await onProgress?.({
     stage: "parsing_response",
     message: "Tolkar Gemini-svaret som kurs-JSON.",
     responseTextLength: text.length,
