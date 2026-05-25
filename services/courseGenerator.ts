@@ -92,6 +92,16 @@ export const generateCourseFromSource = async (
   const jobId = createJobId();
   const sourceText = isTextSource(file) ? await fileToText(file) : undefined;
   const fileBase64 = sourceText ? undefined : await fileToBase64(file);
+  console.log('COURSE_GENERATOR_REQUEST', {
+    jobId,
+    fileName: file.name,
+    fileSize: file.size,
+    fileMimeType: file.type || 'application/octet-stream',
+    requestContentType: 'application/json',
+    transport: sourceText ? 'text' : 'base64',
+    fileBase64Length: fileBase64?.length || 0,
+    sourceTextLength: sourceText?.length || 0,
+  });
 
   onProgress?.({
     event: 'received',

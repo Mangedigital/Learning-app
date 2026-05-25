@@ -8,14 +8,26 @@ const jsonResponse = (body, status) =>
   });
 
 export default async (req) => {
+  let body = {};
+  console.log("FUNCTION REACHED", typeof body, Object.keys(body));
+
   if (req.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
 
-  let body;
   try {
     body = await req.json();
+    console.log("FUNCTION BODY PARSED", typeof body, Object.keys(body), {
+      contentType: req.headers.get("content-type"),
+      fileName: body?.fileName,
+      fileMimeType: body?.fileMimeType,
+      fileBase64Length: typeof body?.fileBase64 === "string" ? body.fileBase64.length : 0,
+      sourceTextLength: typeof body?.sourceText === "string" ? body.sourceText.length : 0,
+    });
   } catch {
+    console.log("FUNCTION BODY PARSE FAILED", {
+      contentType: req.headers.get("content-type"),
+    });
     return jsonResponse({ error: "Invalid JSON body" }, 400);
   }
 
