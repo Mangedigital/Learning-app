@@ -6,15 +6,11 @@ const MAX_FILE_SIZE_BASE64 = 8_000_000;
 const MAX_TEXT_LENGTH = 120_000;
 const SUPPORTED_MIME_TYPES = new Set([
   "application/pdf",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "text/markdown",
   "text/plain",
 ]);
 const SUPPORTED_EXTENSIONS = {
   ".pdf": "application/pdf",
-  ".doc": "application/msword",
-  ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   ".md": "text/markdown",
   ".txt": "text/plain",
 };
@@ -24,7 +20,7 @@ const ALLOWED_ROLES = [
   "Chef",
 ];
 
-export const friendlySupportedTypes = () => "PDF, Word (.doc/.docx), Markdown (.md) eller text (.txt)";
+export const friendlySupportedTypes = () => "PDF, Markdown (.md) eller text (.txt). Word behöver sparas som PDF först.";
 
 export const inferMimeType = (fileName, fileMimeType) => {
   if (SUPPORTED_MIME_TYPES.has(fileMimeType)) return fileMimeType;
@@ -362,6 +358,10 @@ export const generateCourseWithGemini = async ({ apiKey, input, useFileApi = fal
     });
     sourcePart = { text: `Källtext:\n\n${input.trimmedSourceText}` };
   } else if (useFileApi) {
+    if (input.resolvedMimeType !== "application/pdf") {
+      throw new Error("Gemini File API stödjer inte Word-filer direkt just nu. Spara dokumentet som PDF, Markdown eller text och försök igen.");
+    }
+
     const uploadedFile = await uploadGeminiFile({
       apiKey,
       fileName: input.fileName,

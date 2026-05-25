@@ -114,7 +114,7 @@ export const CourseHome: React.FC<{
           </div>
           <div>
             <h2 className="text-xl md:text-2xl font-black">Skapa kursutkast från källfil</h2>
-            <p className="text-sm text-slate-300">Stödjer PDF, Word, Markdown och text. AI-genererat innehåll måste granskas innan publicering.</p>
+            <p className="text-sm text-slate-300">Stödjer PDF, Markdown och text. Word behöver sparas som PDF i den här prototypen. AI-genererat innehåll måste granskas innan publicering.</p>
           </div>
         </div>
 

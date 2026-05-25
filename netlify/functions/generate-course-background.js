@@ -1,4 +1,4 @@
-import { completeJob, createProcessingJob, failJob, updateProcessingJob } from "./course-generation-jobs.js";
+import { completeJob, failJob, getJobSource, updateProcessingJob } from "./course-generation-jobs.js";
 import { generateCourseWithGemini, validateGenerationInput } from "./course-generation-core.js";
 
 const jsonResponse = (body, status) =>
@@ -43,14 +43,21 @@ export default async (req) => {
   }
 
   try {
-    const input = validateGenerationInput(body);
-    await createProcessingJob(jobId, {
+    const sourceBody = body.fileBase64 || body.sourceText ? body : await getJobSource(jobId);
+    if (!sourceBody) {
+      throw new Error("Källfilen saknas i serverlagret för jobbet.");
+    }
+
+    const input = validateGenerationInput(sourceBody);
+    await updateProcessingJob(jobId, {
       sourceTitle: input.sourceTitle,
       fileName: input.fileName,
       resolvedMimeType: input.resolvedMimeType,
       sourceTextLength: input.sourceTextLength,
       fileBase64Length: input.fileBase64Length,
       generationMode: input.isTextSource ? "text" : "gemini_file_api",
+      stage: "background_started",
+      message: "Background-funktionen har hämtat källfilen från serverlagret.",
     });
 
     const { course } = await generateCourseWithGemini({

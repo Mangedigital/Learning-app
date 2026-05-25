@@ -1,8 +1,6 @@
 import { MicroCourse } from '../types';
 
-export const SUPPORTED_SOURCE_ACCEPT = '.pdf,.doc,.docx,.md,.txt,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/markdown,text/plain';
-
-const TEXT_FILE_EXTENSIONS = ['.md', '.txt'];
+export const SUPPORTED_SOURCE_ACCEPT = '.pdf,.md,.txt,application/pdf,text/markdown,text/plain';
 
 export type CourseGenerationProgress = {
   event: string;
@@ -11,30 +9,6 @@ export type CourseGenerationProgress = {
   course?: MicroCourse;
   jobId?: string;
   [key: string]: unknown;
-};
-
-const fileToBase64 = (file: File): Promise<string> =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = String(reader.result || '');
-      resolve(result.split(',')[1] || '');
-    };
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
-
-const fileToText = (file: File): Promise<string> =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ''));
-    reader.onerror = () => reject(reader.error);
-    reader.readAsText(file);
-  });
-
-const isTextSource = (file: File) => {
-  const lowerName = file.name.toLowerCase();
-  return file.type.startsWith('text/') || TEXT_FILE_EXTENSIONS.some((extension) => lowerName.endsWith(extension));
 };
 
 const readErrorMessage = async (response: Response) => {
@@ -90,17 +64,13 @@ export const generateCourseFromSource = async (
   onProgress?: (event: CourseGenerationProgress) => void
 ): Promise<MicroCourse> => {
   const jobId = createJobId();
-  const sourceText = isTextSource(file) ? await fileToText(file) : undefined;
-  const fileBase64 = sourceText ? undefined : await fileToBase64(file);
   console.log('COURSE_GENERATOR_REQUEST', {
     jobId,
     fileName: file.name,
     fileSize: file.size,
     fileMimeType: file.type || 'application/octet-stream',
-    requestContentType: 'application/json',
-    transport: sourceText ? 'text' : 'base64',
-    fileBase64Length: fileBase64?.length || 0,
-    sourceTextLength: sourceText?.length || 0,
+    requestContentType: 'multipart/form-data',
+    transport: 'formData',
   });
 
   onProgress?.({
@@ -110,21 +80,28 @@ export const generateCourseFromSource = async (
     jobId,
   });
 
-  const response = await fetch('/.netlify/functions/generate-course-background', {
+  const sourcePayload = new FormData();
+  sourcePayload.append('jobId', jobId);
+  sourcePayload.append('sourceTitle', sourceTitle);
+  sourcePayload.append('file', file, file.name);
+
+  const startResponse = await fetch('/api/start-course-generation', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jobId,
-      sourceTitle,
-      fileName: file.name,
-      fileMimeType: file.type || 'application/octet-stream',
-      fileBase64,
-      sourceText,
-    }),
+    body: sourcePayload,
   });
 
-  if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+  if (!startResponse.ok) {
+    throw new Error(await readErrorMessage(startResponse));
+  }
+
+  const backgroundResponse = await fetch('/.netlify/functions/generate-course-background', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jobId }),
+  });
+
+  if (!backgroundResponse.ok) {
+    throw new Error(await readErrorMessage(backgroundResponse));
   }
 
   onProgress?.({

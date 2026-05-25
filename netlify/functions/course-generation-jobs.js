@@ -1,6 +1,7 @@
 import { getStore } from "@netlify/blobs";
 
 const STORE_NAME = "course-generation-jobs";
+const SOURCE_PREFIX = "source:";
 
 const getJobStore = () => getStore(STORE_NAME);
 
@@ -15,6 +16,16 @@ export const saveJob = async (jobId, job) => {
 export const getJob = async (jobId) => {
   const store = getJobStore();
   return store.get(jobId, { type: "json" });
+};
+
+export const saveJobSource = async (jobId, source) => {
+  const store = getJobStore();
+  await store.setJSON(`${SOURCE_PREFIX}${jobId}`, source);
+};
+
+export const getJobSource = async (jobId) => {
+  const store = getJobStore();
+  return store.get(`${SOURCE_PREFIX}${jobId}`, { type: "json" });
 };
 
 export const createProcessingJob = async (jobId, metadata) => {
