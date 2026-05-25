@@ -1,14 +1,14 @@
 
 import React, { useState, useMemo } from 'react';
-import { QuizQuestion, UserRole } from '../types';
+import { CourseRole, QuizQuestion } from '../types';
 
-export const QuizModule: React.FC<{ role: UserRole; questions: QuizQuestion[]; onComplete: () => void }> = ({ role, questions, onComplete }) => {
+export const QuizModule: React.FC<{ role: CourseRole; questions: QuizQuestion[]; onComplete: () => void }> = ({ role, questions, onComplete }) => {
   const [currentIdx, setCurrentIdx] = useState(0);
   const [selected, setSelected] = useState<boolean | null>(null);
   const [showExplanation, setShowExplanation] = useState(false);
 
   const filteredQuestions = useMemo(() => {
-    return questions.filter(q => q.role === role);
+    return questions.filter(q => q.roleId === role.id);
   }, [role, questions]);
 
   const question = filteredQuestions[currentIdx];
@@ -34,7 +34,7 @@ export const QuizModule: React.FC<{ role: UserRole; questions: QuizQuestion[]; o
     return (
       <div className="p-8 md:p-12 text-center bg-white rounded-2xl shadow-sm border border-slate-100">
         <h3 className="text-lg md:text-xl font-bold text-slate-800 mb-2">Inga quizfrågor tillgängliga</h3>
-        <p className="text-sm text-slate-500">Det finns inga rollanpassade quizfrågor för {role} ännu.</p>
+        <p className="text-sm text-slate-500">Det finns inga rollanpassade quizfrågor för {role.title} ännu.</p>
       </div>
     );
   }

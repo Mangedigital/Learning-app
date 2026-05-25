@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { MicroCourse, UserRole } from './types';
+import { MicroCourse } from './types';
 import { courseRepository } from './services/courseRepository';
 
 import { Header } from './components/Header';
@@ -15,7 +15,7 @@ import { CourseSummary } from './components/CourseSummary';
 import { Footer } from './components/Footer';
 
 const STORAGE_KEY = 'ai_i_vardagen_progress';
-const validRoles = new Set(Object.values(UserRole));
+const getCourseStorageKey = (courseId: string, suffix: string) => `${STORAGE_KEY}_${courseId}_${suffix}`;
 
 const readStorageItem = (key: string) => {
   try {
@@ -25,18 +25,22 @@ const readStorageItem = (key: string) => {
   }
 };
 
-const readSavedRole = (): UserRole | null => {
-  const saved = readStorageItem(`${STORAGE_KEY}_role`);
-  return saved && validRoles.has(saved as UserRole) ? (saved as UserRole) : null;
+const readSavedRoleId = (courseId: string | null, courses: MicroCourse[]): string | null => {
+  if (!courseId) return null;
+  const saved = readStorageItem(getCourseStorageKey(courseId, 'roleId'));
+  const course = courses.find((item) => item.id === courseId);
+  return saved && course?.roles.some((role) => role.id === saved) ? saved : null;
 };
 
-const readSavedActiveModuleId = (): string | null => {
-  const saved = readStorageItem(`${STORAGE_KEY}_activeModuleId`);
+const readSavedActiveModuleId = (courseId: string | null): string | null => {
+  if (!courseId) return null;
+  const saved = readStorageItem(getCourseStorageKey(courseId, 'activeModuleId'));
   return saved;
 };
 
-const readSavedCompletedModules = (): string[] => {
-  const saved = readStorageItem(`${STORAGE_KEY}_completed`);
+const readSavedCompletedModules = (courseId: string | null): string[] => {
+  if (!courseId) return [];
+  const saved = readStorageItem(getCourseStorageKey(courseId, 'completed'));
   if (!saved) return [];
 
   try {
@@ -54,28 +58,31 @@ export default function App() {
     return readStorageItem(`${STORAGE_KEY}_courseId`);
   });
   // Initialize state from localStorage if available
-  const [role, setRole] = useState<UserRole | null>(() => {
-    return readSavedRole();
+  const [roleId, setRoleId] = useState<string | null>(() => {
+    return readSavedRoleId(readStorageItem(`${STORAGE_KEY}_courseId`), courseRepository.listCourses());
   });
   
   const [activeModuleId, setActiveModuleId] = useState<string | null>(() => {
-    return readSavedActiveModuleId();
+    return readSavedActiveModuleId(readStorageItem(`${STORAGE_KEY}_courseId`));
   });
   
   const [completedModules, setCompletedModules] = useState<string[]>(() => {
-    return readSavedCompletedModules();
+    return readSavedCompletedModules(readStorageItem(`${STORAGE_KEY}_courseId`));
   });
   
   const [userReflection, setUserReflection] = useState(() => {
-    return readStorageItem(`${STORAGE_KEY}_reflection`) || '';
+    const courseId = readStorageItem(`${STORAGE_KEY}_courseId`);
+    return courseId ? readStorageItem(getCourseStorageKey(courseId, 'reflection')) || '' : '';
   });
   
   const [isFinished, setIsFinished] = useState(() => {
-    return readStorageItem(`${STORAGE_KEY}_isFinished`) === 'true';
+    const courseId = readStorageItem(`${STORAGE_KEY}_courseId`);
+    return courseId ? readStorageItem(getCourseStorageKey(courseId, 'isFinished')) === 'true' : false;
   });
   
   const [debugMode, setDebugMode] = useState(false);
   const activeCourse = courses.find((course) => course.id === selectedCourseId) || null;
+  const activeRole = activeCourse?.roles.find((item) => item.id === roleId) || null;
 
   // Sync state to localStorage whenever it changes
   useEffect(() => {
@@ -84,32 +91,43 @@ export default function App() {
   }, [selectedCourseId]);
 
   useEffect(() => {
-    if (role) localStorage.setItem(`${STORAGE_KEY}_role`, role);
-    else localStorage.removeItem(`${STORAGE_KEY}_role`);
-  }, [role]);
+    if (!selectedCourseId) return;
+    if (roleId) localStorage.setItem(getCourseStorageKey(selectedCourseId, 'roleId'), roleId);
+    else localStorage.removeItem(getCourseStorageKey(selectedCourseId, 'roleId'));
+  }, [roleId, selectedCourseId]);
 
   useEffect(() => {
-    if (activeModuleId) localStorage.setItem(`${STORAGE_KEY}_activeModuleId`, activeModuleId);
-    else localStorage.removeItem(`${STORAGE_KEY}_activeModuleId`);
-  }, [activeModuleId]);
+    if (!selectedCourseId) return;
+    if (activeModuleId) localStorage.setItem(getCourseStorageKey(selectedCourseId, 'activeModuleId'), activeModuleId);
+    else localStorage.removeItem(getCourseStorageKey(selectedCourseId, 'activeModuleId'));
+  }, [activeModuleId, selectedCourseId]);
 
   useEffect(() => {
-    localStorage.setItem(`${STORAGE_KEY}_completed`, JSON.stringify(completedModules));
-  }, [completedModules]);
+    if (selectedCourseId) localStorage.setItem(getCourseStorageKey(selectedCourseId, 'completed'), JSON.stringify(completedModules));
+  }, [completedModules, selectedCourseId]);
 
   useEffect(() => {
-    localStorage.setItem(`${STORAGE_KEY}_reflection`, userReflection);
-  }, [userReflection]);
+    if (selectedCourseId) localStorage.setItem(getCourseStorageKey(selectedCourseId, 'reflection'), userReflection);
+  }, [userReflection, selectedCourseId]);
 
   useEffect(() => {
-    localStorage.setItem(`${STORAGE_KEY}_isFinished`, String(isFinished));
-  }, [isFinished]);
+    if (selectedCourseId) localStorage.setItem(getCourseStorageKey(selectedCourseId, 'isFinished'), String(isFinished));
+  }, [isFinished, selectedCourseId]);
 
   const activeModule = activeCourse?.modules.find(m => m.id === activeModuleId);
 
   const selectCourse = (course: MicroCourse) => {
     setSelectedCourseId(course.id);
-    setRole(null);
+    setRoleId(readSavedRoleId(course.id, courses));
+    setCompletedModules(readSavedCompletedModules(course.id));
+    setActiveModuleId(readSavedActiveModuleId(course.id));
+    setUserReflection(readStorageItem(getCourseStorageKey(course.id, 'reflection')) || '');
+    setIsFinished(readStorageItem(getCourseStorageKey(course.id, 'isFinished')) === 'true');
+  };
+
+  const startCourseFresh = (course: MicroCourse) => {
+    setSelectedCourseId(course.id);
+    setRoleId(null);
     setActiveModuleId(null);
     setCompletedModules([]);
     setUserReflection('');
@@ -119,22 +137,24 @@ export default function App() {
   const publishCourse = (course: MicroCourse) => {
     const saved = courseRepository.saveCourse(course);
     setCourses(courseRepository.listCourses());
-    selectCourse(saved);
+    startCourseFresh(saved);
   };
 
   const reset = () => {
+    if (selectedCourseId) {
+      localStorage.removeItem(getCourseStorageKey(selectedCourseId, 'roleId'));
+      localStorage.removeItem(getCourseStorageKey(selectedCourseId, 'activeModuleId'));
+      localStorage.removeItem(getCourseStorageKey(selectedCourseId, 'completed'));
+      localStorage.removeItem(getCourseStorageKey(selectedCourseId, 'reflection'));
+      localStorage.removeItem(getCourseStorageKey(selectedCourseId, 'isFinished'));
+    }
     setSelectedCourseId(null);
-    setRole(null);
+    setRoleId(null);
     setActiveModuleId(null);
     setCompletedModules([]);
     setUserReflection('');
     setIsFinished(false);
     // Clear localStorage
-    localStorage.removeItem(`${STORAGE_KEY}_role`);
-    localStorage.removeItem(`${STORAGE_KEY}_activeModuleId`);
-    localStorage.removeItem(`${STORAGE_KEY}_completed`);
-    localStorage.removeItem(`${STORAGE_KEY}_reflection`);
-    localStorage.removeItem(`${STORAGE_KEY}_isFinished`);
     localStorage.removeItem(`${STORAGE_KEY}_courseId`);
   };
 
@@ -172,11 +192,11 @@ export default function App() {
     );
   }
 
-  if (!role) {
+  if (!activeRole) {
     return (
       <div className="min-h-screen bg-slate-50">
         <Header onReset={reset} />
-        <RoleSelector roles={activeCourse.roles} onSelect={setRole} />
+        <RoleSelector roles={activeCourse.roles} onSelect={(nextRole) => setRoleId(nextRole.id)} />
         <Footer debugMode={debugMode} onToggleDebug={toggleDebug} />
       </div>
     );
@@ -185,8 +205,8 @@ export default function App() {
   if (isFinished) {
     return (
       <div className="min-h-screen bg-slate-100">
-        <Header role={role} onReset={reset} />
-        <CourseSummary role={role} reflection={userReflection} onFinish={reset} />
+        <Header role={activeRole} onReset={reset} />
+        <CourseSummary role={activeRole} reflection={userReflection} onFinish={reset} />
         <Footer debugMode={debugMode} onToggleDebug={toggleDebug} />
       </div>
     );
@@ -194,13 +214,13 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
-      <Header role={role} onReset={reset} />
+      <Header role={activeRole} onReset={reset} />
       
       <main className="flex-1">
         {!activeModuleId || !activeModule ? (
           <LearningPath 
             courseTitle={activeCourse.title}
-            role={role} 
+            role={activeRole}
             modules={activeCourse.modules}
             resources={activeCourse.resources}
             completedModules={completedModules} 
@@ -216,17 +236,17 @@ export default function App() {
           >
             {activeModule?.type === 'matching' && (
               <RiskDetectiveMatching
-                role={role}
+                role={activeRole}
                 rules={activeCourse.rules}
                 scenarios={activeCourse.matchingScenarios}
                 onComplete={() => handleModuleComplete()}
               />
             )}
             {activeModule?.type === 'reflection' && (
-              <ReflectionModule role={role} roleScenarios={activeCourse.roleScenarios} onComplete={handleModuleComplete} />
+              <ReflectionModule role={activeRole} roleScenarios={activeCourse.roleScenarios} onComplete={handleModuleComplete} />
             )}
             {activeModule?.type === 'quiz' && (
-              <QuizModule role={role} questions={activeCourse.quizQuestions} onComplete={() => handleModuleComplete()} />
+              <QuizModule role={activeRole} questions={activeCourse.quizQuestions} onComplete={() => handleModuleComplete()} />
             )}
           </ModuleLayout>
         )}

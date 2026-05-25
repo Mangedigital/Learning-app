@@ -1,8 +1,8 @@
 
 import React from 'react';
-import { UserRole } from '../types';
+import { CourseRole } from '../types';
 
-export const CourseSummary: React.FC<{ role: UserRole; reflection: string; onFinish: () => void }> = ({ role, reflection, onFinish }) => (
+export const CourseSummary: React.FC<{ role: CourseRole; reflection: string; onFinish: () => void }> = ({ role, reflection, onFinish }) => (
   <div className="max-w-2xl mx-auto p-4 md:p-6 animate-in zoom-in duration-700">
     <div className="bg-white rounded-3xl shadow-2xl p-6 md:p-10 text-center border-t-8 border-green-500 relative overflow-hidden">
       <div className="absolute -top-12 -right-12 w-32 h-32 bg-green-50 rounded-full opacity-50"></div>
@@ -10,7 +10,7 @@ export const CourseSummary: React.FC<{ role: UserRole; reflection: string; onFin
         <i className="fa-solid fa-award text-4xl md:text-5xl"></i>
       </div>
       <h2 className="text-3xl md:text-4xl font-black text-slate-800 mb-2">Snyggt jobbat!</h2>
-      <p className="text-sm md:text-base text-slate-600 mb-6 md:mb-8 font-medium">Du har nu genomfört Nivå 1 i "AI i Vardagen" för {role}.</p>
+      <p className="text-sm md:text-base text-slate-600 mb-6 md:mb-8 font-medium">Du har nu genomfört Nivå 1 för {role.title}.</p>
       
       <div className="text-left bg-slate-50 p-4 md:p-6 rounded-2xl mb-6 md:mb-8 border border-slate-100 shadow-inner">
         <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Dina insikter kring AI-etik</h4>

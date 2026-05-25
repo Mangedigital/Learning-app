@@ -1,5 +1,29 @@
 
-import { GoldenRule, UserRole, CourseLevel, CourseModule, QuizQuestion, MatchingScenario, MicroCourse } from './types';
+import { GoldenRule, CourseRole, CourseLevel, CourseModule, QuizQuestion, MatchingScenario, MicroCourse } from './types';
+
+export const COURSE_ROLES: CourseRole[] = [
+  {
+    id: 'hr',
+    title: 'HR-specialist/Rekryterare',
+    description: 'Arbetar med rekrytering, kandidaturval och personaldata.',
+    focus: 'Rekrytering av chefer och medarbetare',
+    icon: 'fa-user-tie',
+  },
+  {
+    id: 'dev-lead',
+    title: 'Utvecklingsledare',
+    description: 'Arbetar med analys, rapporter, enkäter och verksamhetsutveckling.',
+    focus: 'Förändringsledning och kompetensförsörjning',
+    icon: 'fa-arrows-spin',
+  },
+  {
+    id: 'manager',
+    title: 'Chef',
+    description: 'Leder medarbetares AI-användning, rutiner och riskkultur.',
+    focus: 'Styrning, ansvar och beslutsunderlag',
+    icon: 'fa-briefcase',
+  },
+];
 
 export const GOLDEN_RULES: GoldenRule[] = [
   { id: 1, title: 'Etiskt och ansvarsfullt', content: 'Du ansvarar för att du använder AI på ett etiskt och ansvarsfullt sätt utifrån stadens demokratiska uppdrag.' },
@@ -17,7 +41,7 @@ export const MATCHING_SCENARIOS: MatchingScenario[] = [
   // --- HR-SPECIALIST/REKRYTERARE ---
   {
     id: 'hr1',
-    role: UserRole.HR,
+    roleId: 'hr',
     text: "Case 1: CV-analys i publik chatt. Du vill snabba på urvalet genom att låta AI sammanfatta kandidaternas personliga brev och CV:n i en publik chatt.",
     correctRuleId: 5,
     explanation: "Personuppgifter: CV:n innehåller personuppgifter som aldrig får matas in i publika system. [Källa: Att använda AI i Göteborgs Stad]",
@@ -32,7 +56,7 @@ export const MATCHING_SCENARIOS: MatchingScenario[] = [
   },
   {
     id: 'hr2',
-    role: UserRole.HR,
+    roleId: 'hr',
     text: "Case 2: Bias vid rangordning. Du ber AI rangordna topp 5-kandidater baserat på kompetens. Du märker att AI:n endast föreslår kandidater med liknande bakgrund.",
     correctRuleId: 1,
     explanation: "Etik/Rättvisa: Innebär ett åtagande att säkerställa att individer inte utsätts för diskriminering eller snedvridning. [Källa: Att använda AI i Göteborgs Stad]",
@@ -49,7 +73,7 @@ export const MATCHING_SCENARIOS: MatchingScenario[] = [
   // --- UTVECKLINGSLEDARE ---
   {
     id: 'utv1',
-    role: UserRole.DEV_LEAD,
+    roleId: 'dev-lead',
     text: "Case 1: Forskningssammanfattning. Du använder AI för att sammanfatta rapporter. En föräldraförening begär ut att få se hela din konversation.",
     correctRuleId: 7,
     explanation: "Logik: Allmänhetens rätt till insyn gäller även AI-dialoger. Enligt källan ska vi kunna redovisa att och hur AI använts. Loggfiler och chattar kan utgöra allmän handling. [Källa: Att använda AI i Göteborgs Stad]",
@@ -64,7 +88,7 @@ export const MATCHING_SCENARIOS: MatchingScenario[] = [
   },
   {
     id: 'utv2',
-    role: UserRole.DEV_LEAD,
+    roleId: 'dev-lead',
     text: "Case 2: AI-bild i material. Du genererar en bild för en broschyr men råkar få med en felaktig logotyp.",
     correctRuleId: 9,
     explanation: "Logik: Du ansvarar för att materialet följer grafisk profil. Källan \"Så jobbar du med AI\" förbjuder manipulering av logotyper och kräver märkning av AI-bilder. [Källa: Att använda AI i Göteborgs Stad]",
@@ -79,7 +103,7 @@ export const MATCHING_SCENARIOS: MatchingScenario[] = [
   },
   {
     id: 'utv3',
-    role: UserRole.DEV_LEAD,
+    roleId: 'dev-lead',
     text: "Case 3: Plan för högindex. Du planerar insatser. AI föreslår att ni drar ner på språket för att fokusera på 'enklare färdigheter'.",
     correctRuleId: 3,
     explanation: "Logik: AI-förslag som rör resursfördelning eller pedagogiska strategier i prioriterade områden är högrisk. Mänsklig tillsyn krävs (Regel 1 & 3). [Källa: Att använda AI i Göteborgs Stad]",
@@ -96,7 +120,7 @@ export const MATCHING_SCENARIOS: MatchingScenario[] = [
   // --- CHEF (MANAGER) ---
   {
     id: 'manager1',
-    role: UserRole.MANAGER,
+    roleId: 'manager',
     text: "Case 1: Underlaget till HR-ledningen\nDu ska presentera en analys av sjukfrånvaron och föreslagna åtgärder för HR-ledningen. En av dina HR-specialister har använt AI för att sammanställa statistiken och skriva utkastet till presentationen. Under mötet upptäcker en kollega att siffrorna för en stadsdel inte stämmer alls – AI:n har \"hallucinerat\" fram data som saknades.\n\nFråga: Vem bär det formella ansvaret för det felaktiga underlaget enligt stadens regler?",
     correctRuleId: 6,
     explanation: "Regel 6: Kontrollera resultatet. Som chef bär du alltid det yttersta ansvaret för det material din enhet levererar. Regel 6 är tydlig: \"Du ansvarar alltid själv för resultatet av ditt arbete\". I rollen som chef innebär det att du ansvarar för att kvalitetssäkra det dina medarbetare producerat med AI-stöd innan det når ledningen. [Källa: Att använda AI i Göteborgs Stad]",
@@ -111,7 +135,7 @@ export const MATCHING_SCENARIOS: MatchingScenario[] = [
   },
   {
     id: 'manager2',
-    role: UserRole.MANAGER,
+    roleId: 'manager',
     text: "Case 2: Struktur för APT (Arbetsplatsträff)\nDu vill effektivisera planeringen av enhetens APT och ber en medarbetare ta fram en diskussionsstruktur kring \"framtidens kompetensförsörjning i förskolan\" med hjälp av AI. Medarbetaren matar in data från StratSys för att få en korrekt nulägesbild av förskolornas behov.\n\nFråga: Vilken regel riskerar att brytas här och vad är ditt ansvar som chef?",
     correctRuleId: 4,
     explanation: "Regel 4 (Sekretess) & Regel 5 (Personuppgifter). Du som chef måste sätta ramarna för vad som får matas in i AI-systemen. Behov på namngivna förskolor ska med stor försiktighet användas i publika AI-verktyg. Ditt ansvar är att skapa rutiner som skyddar känslig information. [Källa: Att använda AI i Göteborgs Stad]",
@@ -126,7 +150,7 @@ export const MATCHING_SCENARIOS: MatchingScenario[] = [
   },
   {
     id: 'manager3',
-    role: UserRole.MANAGER,
+    roleId: 'manager',
     text: "Case 3: Implementering av AI-verktyg på enheten\nNågra av dina medarbetare har börjat använda ett olicensierat AI-verktyg för att transkribera exit-samtal för att spara tid. De tycker att det fungerar fantastiskt och vill att hela enheten ska börja använda det.\n\nFråga: Hur bör du som chef agera utifrån stadens styrning?",
     correctRuleId: 2,
     explanation: "Regel 2: Använd lämpliga AI-system. Som chef ansvarar du för att din enhet endast använder system som är anskaffade eller godkända av staden. Du behöver pausa användningen och stämma av med förvaltningens digitaliseringsenhet eller IT-avdelning för att säkerställa att verktyget uppfyller säkerhetskraven innan det blir en del av arbetsrutinen. [Källa: Att använda AI i Göteborgs Stad]",
@@ -141,7 +165,7 @@ export const MATCHING_SCENARIOS: MatchingScenario[] = [
   },
   {
     id: 'manager4',
-    role: UserRole.MANAGER,
+    roleId: 'manager',
     text: "Case 4: Beslutsstöd vid resursfördelning\nDu ska fördela kompetensutvecklingsmedel mellan olika områden. En utvecklingsledare har tagit fram ett prioriteringsförslag med hjälp av en AI-modell. Du förstår inte riktigt varför vissa förskolor i högindexområden har fått lägre prioritet än förväntat, men \"det ser proffsigt ut\".\n\nFråga: Vilket etiskt dilemma står du inför som chef här?",
     correctRuleId: 1,
     explanation: "Regel 1: Etiskt och ansvarsfullt (Förklarbarhet). Som chef får du aldrig fatta beslut baserat på AI-underlag som du inte kan förklara eller motivera mänskligt. Detta är särskilt viktigt i högindexområden (Regel 3). Du har ett ansvar att \"öppna den svarta lådan\" och kräva insyn i hur förslaget tagits fram för att undvika osaklig diskriminering. [Källa: Att använda AI i Göteborgs Stad]",
@@ -156,7 +180,7 @@ export const MATCHING_SCENARIOS: MatchingScenario[] = [
   },
   {
     id: 'manager5',
-    role: UserRole.MANAGER,
+    roleId: 'manager',
     text: "Case 5: Kommunikation på enhetsmötet\nDu märker att stämningen på enheten är lite orolig kring AI – vissa är rädda att deras arbetsuppgifter ska försvinna. Du vill använda AI för att skriva ett peppande manus till nästa enhetsmöte för att lugna personalen.\n\nFråga: Vad är viktigast att tänka på när du använder AI för att kommunicera som ledare?",
     correctRuleId: 7,
     explanation: "Regel 7: Transparens. För att behålla förtroendet bör du vara öppen med när du använder AI. Genom att berätta: \"Jag har tagit hjälp av AI för att strukturera mina tankar inför idag\", agerar du som en förebild och visar på en transparent och ansvarsfull användning i linje med stadens policy. [Källa: Att använda AI i Göteborgs Stad]",
@@ -178,7 +202,7 @@ export const MODULES: CourseModule[] = [
     description: 'Identifiera risker i scenarier genom att konsultera stadens gyllene regler.',
     type: 'matching',
     metadata: {
-      role: [UserRole.HR, UserRole.DEV_LEAD, UserRole.MANAGER],
+      roleIds: ['hr', 'dev-lead', 'manager'],
       level: CourseLevel.BASIC,
       category: 'Etik',
       durationMinutes: 10
@@ -190,7 +214,7 @@ export const MODULES: CourseModule[] = [
     description: 'Fördjupad reflektion kring ditt ansvar som HR-specialist eller utvecklingsledare.',
     type: 'reflection',
     metadata: {
-      role: [UserRole.HR, UserRole.DEV_LEAD, UserRole.MANAGER],
+      roleIds: ['hr', 'dev-lead', 'manager'],
       level: CourseLevel.BASIC,
       category: 'Ansvar',
       durationMinutes: 15
@@ -202,7 +226,7 @@ export const MODULES: CourseModule[] = [
     description: 'Testa dina kunskaper i de mest utmanande juridiska och etiska AI-frågorna.',
     type: 'quiz',
     metadata: {
-      role: [UserRole.HR, UserRole.DEV_LEAD, UserRole.MANAGER],
+      roleIds: ['hr', 'dev-lead', 'manager'],
       level: CourseLevel.BASIC,
       category: 'Juridik',
       durationMinutes: 5
@@ -214,7 +238,7 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
   // --- HR-SPECIALIST/REKRYTERARE ---
   {
     id: 'hr-ethics-control',
-    role: UserRole.HR,
+    roleId: 'hr',
     ruleIds: [1, 6],
     question: "Du låter AI föreslå vilka kandidater som verkar mest lämpade, men du granskar själv mot kravprofilen och dokumenterar varför du går vidare med vissa. Det är ett exempel på mänsklig kontroll.",
     answer: true,
@@ -222,7 +246,7 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
   },
   {
     id: 'hr-approved-system',
-    role: UserRole.HR,
+    roleId: 'hr',
     ruleIds: [2, 3],
     question: "Om ett AI-verktyg är lätt att använda och ger bra rekryteringsstöd kan du använda det för urval även om det inte är godkänt för den information du hanterar.",
     answer: false,
@@ -230,7 +254,7 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
   },
   {
     id: 'hr-confidential-personal-data',
-    role: UserRole.HR,
+    roleId: 'hr',
     ruleIds: [4, 5],
     question: "Det räcker att ta bort kandidatens namn innan du klistrar in CV och personligt brev i en publik AI-tjänst.",
     answer: false,
@@ -238,7 +262,7 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
   },
   {
     id: 'hr-transparency-records',
-    role: UserRole.HR,
+    roleId: 'hr',
     ruleIds: [7, 8],
     question: "Om AI hjälper dig att formulera intervjufrågor som påverkar rekryteringsprocessen kan det vara relevant att kunna visa hur AI användes.",
     answer: true,
@@ -246,7 +270,7 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
   },
   {
     id: 'hr-copyright-trust',
-    role: UserRole.HR,
+    roleId: 'hr',
     ruleIds: [9, 7],
     question: "AI-genererade bilder eller texter i rekryteringsmaterial kan användas utan extra granskning så länge de ser professionella ut.",
     answer: false,
@@ -256,7 +280,7 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
   // --- UTVECKLINGSLEDARE ---
   {
     id: 'dev-ethics-control',
-    role: UserRole.DEV_LEAD,
+    roleId: 'dev-lead',
     ruleIds: [1, 6],
     question: "Du använder AI för att sammanfatta enkätkommentarer men jämför slutsatserna med originalmaterialet innan de används i planering. Det är rätt arbetssätt.",
     answer: true,
@@ -264,7 +288,7 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
   },
   {
     id: 'dev-approved-system',
-    role: UserRole.DEV_LEAD,
+    roleId: 'dev-lead',
     ruleIds: [2, 3],
     question: "Ett AI-förslag om resursfördelning i prioriterade områden kan användas direkt om modellen presenterar ett tydligt diagram.",
     answer: false,
@@ -272,7 +296,7 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
   },
   {
     id: 'dev-confidential-personal-data',
-    role: UserRole.DEV_LEAD,
+    roleId: 'dev-lead',
     ruleIds: [4, 5],
     question: "Frisvar från medarbetarenkäter kan analyseras i publik AI om namn tas bort, även när svaren innehåller unika händelser eller arbetsplatsdetaljer.",
     answer: false,
@@ -280,7 +304,7 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
   },
   {
     id: 'dev-transparency-records',
-    role: UserRole.DEV_LEAD,
+    roleId: 'dev-lead',
     ruleIds: [7, 8],
     question: "Om AI används för att ta fram ett underlag som påverkar ett beslut behöver du kunna förklara användningen och hantera materialet som möjlig allmän handling.",
     answer: true,
@@ -288,7 +312,7 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
   },
   {
     id: 'dev-copyright-trust',
-    role: UserRole.DEV_LEAD,
+    roleId: 'dev-lead',
     ruleIds: [9, 7],
     question: "En AI-genererad bild i informationsmaterial behöver granskas så att den inte bryter mot upphovsrätt, använder fel symboler eller vilseleder mottagaren.",
     answer: true,
@@ -298,7 +322,7 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
   // --- CHEF ---
   {
     id: 'manager-ethics-control',
-    role: UserRole.MANAGER,
+    roleId: 'manager',
     ruleIds: [1, 6],
     question: "Som chef kan du delegera AI-granskningen helt till medarbetaren som skapade underlaget, eftersom ansvaret följer den som använde verktyget.",
     answer: false,
@@ -306,7 +330,7 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
   },
   {
     id: 'manager-approved-system',
-    role: UserRole.MANAGER,
+    roleId: 'manager',
     ruleIds: [2, 3],
     question: "Om flera medarbetare vill börja använda ett nytt AI-verktyg för transkribering bör du först säkerställa att verktyget är godkänt för informationstypen.",
     answer: true,
@@ -314,7 +338,7 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
   },
   {
     id: 'manager-confidential-personal-data',
-    role: UserRole.MANAGER,
+    roleId: 'manager',
     ruleIds: [4, 5],
     question: "Du kan uppmuntra medarbetare att använda publik AI för APT-underlag så länge de bara undviker ordet sekretess i prompten.",
     answer: false,
@@ -322,7 +346,7 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
   },
   {
     id: 'manager-transparency-records',
-    role: UserRole.MANAGER,
+    roleId: 'manager',
     ruleIds: [7, 8],
     question: "När AI används i beslutsunderlag bör enheten ha rutiner för att kunna redovisa AI-användningen och spara relevant material vid behov.",
     answer: true,
@@ -330,7 +354,7 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
   },
   {
     id: 'manager-copyright-trust',
-    role: UserRole.MANAGER,
+    roleId: 'manager',
     ruleIds: [9, 7],
     question: "Som chef behöver du sätta ramar för AI-genererat kommunikationsmaterial så att upphovsrätt, märkning och förtroende hanteras rätt.",
     answer: true,
@@ -338,10 +362,10 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
   }
 ];
 
-export const ROLE_SCENARIOS: Record<UserRole, string> = {
-  [UserRole.HR]: "Du överväger att använda AI för att sortera ut de 10 bästa kandidaterna till en rektorstjänst baserat på personlighetstest. Hur reflekterar du kring kravet på förklarbarhet?",
-  [UserRole.DEV_LEAD]: "Du leder ett projekt där AI ska användas för att analysera frisvar i medarbetarenkäten. Hur säkerställer du att integriteten bevaras?",
-  [UserRole.MANAGER]: "Du märker att dina medarbetare börjar använda AI för att skriva beslutsunderlag. Hur agerar du för att säkerställa att transparensen bibehålls?"
+export const ROLE_SCENARIOS: Record<string, string> = {
+  ['hr']: "Du överväger att använda AI för att sortera ut de 10 bästa kandidaterna till en rektorstjänst baserat på personlighetstest. Hur reflekterar du kring kravet på förklarbarhet?",
+  ['dev-lead']: "Du leder ett projekt där AI ska användas för att analysera frisvar i medarbetarenkäten. Hur säkerställer du att integriteten bevaras?",
+  ['manager']: "Du märker att dina medarbetare börjar använda AI för att skriva beslutsunderlag. Hur agerar du för att säkerställa att transparensen bibehålls?"
 };
 
 export const DEFAULT_COURSE: MicroCourse = {
@@ -352,7 +376,7 @@ export const DEFAULT_COURSE: MicroCourse = {
   sourceFileName: 'att-anvanda-ai-i-goteborgs-stad.pdf',
   createdAt: '2026-05-05T00:00:00.000Z',
   status: 'published',
-  roles: [UserRole.HR, UserRole.DEV_LEAD, UserRole.MANAGER],
+  roles: COURSE_ROLES,
   rules: GOLDEN_RULES,
   modules: MODULES,
   matchingScenarios: MATCHING_SCENARIOS,

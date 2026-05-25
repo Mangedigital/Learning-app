@@ -1,18 +1,22 @@
 
-export enum UserRole {
-  HR = 'HR-specialist/Rekryterare',
-  DEV_LEAD = 'Utvecklingsledare',
-  MANAGER = 'Chef'
-}
-
 export enum CourseLevel {
   BASIC = 1,
   APPLICATION = 2,
   ADVANCED = 3
 }
 
+export type RoleId = string;
+
+export interface CourseRole {
+  id: RoleId;
+  title: string;
+  description: string;
+  focus: string;
+  icon: string;
+}
+
 export interface ModuleMetadata {
-  role: UserRole[];
+  roleIds: RoleId[];
   level: CourseLevel;
   category: string;
   durationMinutes: number;
@@ -34,7 +38,7 @@ export interface ResourceLink {
 
 export interface QuizQuestion {
   id: string;
-  role: UserRole;
+  roleId: RoleId;
   ruleIds: number[];
   question: string;
   answer: boolean;
@@ -50,7 +54,7 @@ export interface GoldenRule {
 
 export interface MatchingScenario {
   id: string;
-  role: UserRole;
+  roleId: RoleId;
   text: string;
   correctRuleId: number;
   explanation: string;
@@ -72,11 +76,11 @@ export interface MicroCourse {
   sourceFileName?: string;
   createdAt: string;
   status: 'draft' | 'published';
-  roles: UserRole[];
+  roles: CourseRole[];
   rules: GoldenRule[];
   modules: CourseModule[];
   matchingScenarios: MatchingScenario[];
-  roleScenarios: Record<UserRole, string>;
+  roleScenarios: Record<RoleId, string>;
   quizQuestions: QuizQuestion[];
   resources: ResourceLink[];
 }

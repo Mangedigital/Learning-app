@@ -7,23 +7,14 @@ const MAX_FILE_SIZE_BASE64 = 8_000_000;
 const MAX_TEXT_LENGTH = 120_000;
 const SUPPORTED_MIME_TYPES = new Set([
   "application/pdf",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "text/markdown",
   "text/plain",
 ]);
 const SUPPORTED_EXTENSIONS: Record<string, string> = {
   ".pdf": "application/pdf",
-  ".doc": "application/msword",
-  ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   ".md": "text/markdown",
   ".txt": "text/plain",
 };
-const ALLOWED_ROLES = [
-  "HR-specialist/Rekryterare",
-  "Utvecklingsledare",
-  "Chef",
-];
 
 type SseSender = (event: string, data: Record<string, unknown>) => void;
 
@@ -93,7 +84,7 @@ const inferMimeType = (fileName: string, fileMimeType: string) => {
   return extension ? SUPPORTED_EXTENSIONS[extension] : fileMimeType;
 };
 
-const friendlySupportedTypes = () => "PDF, Word (.doc/.docx), Markdown (.md) eller text (.txt)";
+const friendlySupportedTypes = () => "PDF, Markdown (.md) eller text (.txt). Word behöver sparas som PDF först";
 
 const excerpt = (text: string, limit = 700) =>
   text.length > limit ? `${text.slice(0, limit)}...` : text;
@@ -207,13 +198,15 @@ export default async (req: Request, _context: Context) => {
     const systemInstruction = `Du skapar svenska mikrolärandekurser från en källfil.
 Returnera endast strikt JSON utan markdown. Inga kommentarer.
 Kursen ska vara ett faktakontrollerbart utkast som en administratör granskar innan publicering.
-Använd endast dessa roller: ${ALLOWED_ROLES.join(", ")}.
-Skapa samma struktur för alla roller:
+Föreslå exakt tre roller som är relevanta för källan. Roller ska vara specifika för källans målgrupper, inte fasta standardroller.
+Varje roll ska ha id, title, description, focus och FontAwesome-ikon i formatet fa-...
+Skapa samma struktur för alla tre roller:
 - 9 regler/principer från källan
 - 3 moduler: matching, reflection, quiz
 - minst 2 matching-scenarier per roll
 - 1 reflektionsscenario per roll
 - 5 sant/falskt quizfrågor per roll
+Koppla allt rollinnehåll via roleId. Använd exakt samma roleId i roles, matchingScenarios, roleScenarios och quizQuestions.
 Alla scenarier och quizförklaringar ska vara korta, praktiska och källnära.`;
 
     const prompt = `Skapa ett MicroCourse JSON-objekt från källan "${sourceTitle}".
@@ -226,16 +219,16 @@ JSON-format:
   "sourceFileName": "${fileName}",
   "createdAt": "${new Date().toISOString()}",
   "status": "draft",
-  "roles": ["HR-specialist/Rekryterare","Utvecklingsledare","Chef"],
+  "roles": [{"id":"roll-1","title":"...","description":"...","focus":"...","icon":"fa-user-tie"}],
   "rules": [{"id":1,"title":"...","content":"..."}],
   "modules": [
-    {"id":"1.1","title":"Risk-detektiven","description":"...","type":"matching","metadata":{"role":["HR-specialist/Rekryterare","Utvecklingsledare","Chef"],"level":1,"category":"Etik","durationMinutes":10}},
-    {"id":"1.2","title":"Människan i loopen","description":"...","type":"reflection","metadata":{"role":["HR-specialist/Rekryterare","Utvecklingsledare","Chef"],"level":1,"category":"Ansvar","durationMinutes":15}},
-    {"id":"1.3","title":"Gråzons-Quiz","description":"...","type":"quiz","metadata":{"role":["HR-specialist/Rekryterare","Utvecklingsledare","Chef"],"level":1,"category":"Juridik","durationMinutes":5}}
+    {"id":"1.1","title":"Risk-detektiven","description":"...","type":"matching","metadata":{"roleIds":["roll-1","roll-2","roll-3"],"level":1,"category":"Etik","durationMinutes":10}},
+    {"id":"1.2","title":"Människan i loopen","description":"...","type":"reflection","metadata":{"roleIds":["roll-1","roll-2","roll-3"],"level":1,"category":"Ansvar","durationMinutes":15}},
+    {"id":"1.3","title":"Gråzons-Quiz","description":"...","type":"quiz","metadata":{"roleIds":["roll-1","roll-2","roll-3"],"level":1,"category":"Juridik","durationMinutes":5}}
   ],
-  "matchingScenarios": [{"id":"hr1","role":"HR-specialist/Rekryterare","text":"...","correctRuleId":1,"explanation":"...","sourceQuote":"Källa: ${sourceTitle}","clue":"...","socraticQuestion":"...","options":[1,2,3,4]}],
-  "roleScenarios": {"HR-specialist/Rekryterare":"...","Utvecklingsledare":"...","Chef":"..."},
-  "quizQuestions": [{"id":"hr-q1","role":"HR-specialist/Rekryterare","ruleIds":[1,6],"question":"...","answer":true,"explanation":"..."}],
+  "matchingScenarios": [{"id":"roll-1-case-1","roleId":"roll-1","text":"...","correctRuleId":1,"explanation":"...","sourceQuote":"Källa: ${sourceTitle}","clue":"...","socraticQuestion":"...","options":[1,2,3,4]}],
+  "roleScenarios": {"roll-1":"...","roll-2":"...","roll-3":"..."},
+  "quizQuestions": [{"id":"roll-1-q1","roleId":"roll-1","ruleIds":[1,6],"question":"...","answer":true,"explanation":"..."}],
   "resources": []
 }`;
 

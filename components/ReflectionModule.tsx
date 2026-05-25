@@ -1,23 +1,23 @@
 
 import React, { useState } from 'react';
-import { UserRole } from '../types';
+import { CourseRole } from '../types';
 import { getReflectionFeedback } from '../services/geminiService';
 
 export const ReflectionModule: React.FC<{
-  role: UserRole;
-  roleScenarios: Record<UserRole, string>;
+  role: CourseRole;
+  roleScenarios: Record<string, string>;
   onComplete: (text: string) => void;
 }> = ({ role, roleScenarios, onComplete }) => {
   const [reflection, setReflection] = useState('');
   const [feedback, setFeedback] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const scenario = roleScenarios[role] || roleScenarios[UserRole.MANAGER];
+  const scenario = roleScenarios[role.id] || Object.values(roleScenarios)[0] || 'Reflektera över hur du kan använda källans principer i din roll.';
 
   const handleSubmit = async () => {
     if (!reflection.trim()) return;
     setLoading(true);
-    const fb = await getReflectionFeedback(reflection, role);
+    const fb = await getReflectionFeedback(reflection, role.title);
     setFeedback(fb);
     setLoading(false);
   };

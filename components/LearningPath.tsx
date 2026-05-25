@@ -1,16 +1,16 @@
 
 import React from 'react';
-import { CourseModule, ResourceLink, UserRole } from '../types';
+import { CourseModule, CourseRole, ResourceLink } from '../types';
 import { CourseProgressBar } from './CourseProgressBar';
 
-export const LearningPath: React.FC<{ 
+export const LearningPath: React.FC<{
   courseTitle: string;
-  role: UserRole; 
+  role: CourseRole;
   modules: CourseModule[];
   resources: ResourceLink[];
-  completedModules: string[]; 
-  debugMode: boolean; 
-  onSelect: (id: string) => void 
+  completedModules: string[];
+  debugMode: boolean;
+  onSelect: (id: string) => void
 }> = ({ courseTitle, role, modules, resources, completedModules, debugMode, onSelect }) => {
   const progressDenominator = Math.max(modules.length - 1, 1);
 
@@ -19,7 +19,7 @@ export const LearningPath: React.FC<{
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 md:p-8">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 md:gap-6">
           <div>
-            <h2 className="text-xl md:text-2xl font-bold text-slate-800">Lärstig: {role}</h2>
+            <h2 className="text-xl md:text-2xl font-bold text-slate-800">Lärstig: {role.title}</h2>
             <p className="text-sm text-slate-500">{courseTitle}</p>
           </div>
           <div className="bg-slate-50 p-3 md:p-4 rounded-xl border border-slate-100 w-full md:w-auto min-w-[200px]">

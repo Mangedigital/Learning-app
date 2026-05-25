@@ -1,16 +1,16 @@
 
 import React, { useState, useMemo } from 'react';
-import { GoldenRule, MatchingScenario, UserRole } from '../types';
+import { CourseRole, GoldenRule, MatchingScenario } from '../types';
 import { SourceModal } from './SourceModal';
 
 export const RiskDetectiveMatching: React.FC<{
-  role: UserRole;
+  role: CourseRole;
   rules: GoldenRule[];
   scenarios: MatchingScenario[];
   onComplete: () => void;
 }> = ({ role, rules, scenarios, onComplete }) => {
   const roleScenarios = useMemo(() => {
-    return scenarios.filter(s => s.role === role);
+    return scenarios.filter(s => s.roleId === role.id);
   }, [role, scenarios]);
 
   const [currentIdx, setCurrentIdx] = useState(0);
@@ -57,7 +57,7 @@ export const RiskDetectiveMatching: React.FC<{
   if (!scenario) return (
     <div className="p-8 md:p-12 text-center bg-white rounded-2xl shadow-sm">
       <h3 className="text-lg md:text-xl font-bold text-slate-800 mb-2">Inga scenarier tillgängliga</h3>
-      <p className="text-sm text-slate-500">Det finns inga specifika case för rollen {role} i denna modul ännu.</p>
+      <p className="text-sm text-slate-500">Det finns inga specifika case för rollen {role.title} i denna modul ännu.</p>
       <button onClick={onComplete} className="mt-6 bg-[#004b89] text-white px-8 py-3 rounded-xl font-bold">Hoppa över</button>
     </div>
   );
@@ -82,9 +82,9 @@ export const RiskDetectiveMatching: React.FC<{
       <div className="bg-slate-50 p-5 md:p-8 rounded-2xl border-2 border-slate-100 shadow-inner relative group">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-8 h-8 md:w-10 md:h-10 bg-[#004b89] text-white rounded-full flex items-center justify-center font-bold text-sm md:text-base">
-            <i className={`fa-solid ${role === UserRole.HR ? 'fa-user-tie' : role === UserRole.DEV_LEAD ? 'fa-arrows-spin' : 'fa-briefcase'}`}></i>
+            <i className={`fa-solid ${role.icon || 'fa-user-circle'}`}></i>
           </div>
-          <h3 className="font-bold text-base md:text-lg text-[#004b89]">{role === UserRole.HR ? 'Rekryterings-Case' : role + '-Case'}</h3>
+          <h3 className="font-bold text-base md:text-lg text-[#004b89]">{role.title}-case</h3>
         </div>
         <p className="text-lg md:text-xl text-slate-800 font-medium leading-relaxed mb-6 whitespace-pre-line">
           {scenario.text}

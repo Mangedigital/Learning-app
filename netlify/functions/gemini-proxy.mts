@@ -6,12 +6,6 @@ const MAX_REFLECTION_LENGTH = 2000;
 const MIN_REFLECTION_LENGTH = 10;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_REQUESTS = 10;
-const ALLOWED_ROLES = new Set([
-  "HR-specialist/Rekryterare",
-  "Utvecklingsledare",
-  "Chef",
-]);
-
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
 
 const jsonResponse = (body: Record<string, unknown>, status: number, headers?: HeadersInit) => {
@@ -107,7 +101,8 @@ export default async (req: Request, _context: Context) => {
     return jsonResponse({ error: "Reflection is too short" }, 400);
   }
 
-  if (!ALLOWED_ROLES.has(role)) {
+  const sanitizedRole = role.trim().substring(0, 80);
+  if (!sanitizedRole || /[<>{}]/.test(sanitizedRole)) {
     return jsonResponse({ error: "Invalid role" }, 400);
   }
 
@@ -124,7 +119,7 @@ KRAV PÅ UTFORMNING:
 - Håll svaret kortfattat, max 4 meningar.
 - Fokusera på mänsklig insyn, ansvar och transparens.`;
 
-  const prompt = `Här är en reflektion från en person i rollen "${role}":\n\n"${sanitizedReflection}"\n\nGe coachande feedback baserat på dina instruktioner.`;
+  const prompt = `Här är en reflektion från en person i rollen "${sanitizedRole}":\n\n"${sanitizedReflection}"\n\nGe coachande feedback baserat på dina instruktioner.`;
 
   const geminiBody = {
     system_instruction: {

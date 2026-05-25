@@ -1,9 +1,9 @@
 
 import React from 'react';
-import { UserRole } from '../types';
+import { CourseRole } from '../types';
 import goteborgStadMark from '../assets/goteborg-stad-mark.svg';
 
-export const Header: React.FC<{ role?: UserRole | null; onReset: () => void }> = ({ role, onReset }) => (
+export const Header: React.FC<{ role?: CourseRole | null; onReset: () => void }> = ({ role, onReset }) => (
   <header className="bg-[#004b89] text-white p-3 md:p-4 shadow-md sticky top-0 z-50">
     <div className="container mx-auto flex justify-between items-center">
       <div className="flex items-center gap-2 md:gap-3 cursor-pointer" onClick={onReset}>
@@ -18,7 +18,7 @@ export const Header: React.FC<{ role?: UserRole | null; onReset: () => void }> =
       {role && (
         <div className="hidden sm:flex items-center gap-2 text-xs md:text-sm bg-white/10 px-3 py-1 rounded-full border border-white/20">
           <i className="fa-solid fa-user-circle"></i>
-          <span>{role}</span>
+          <span>{role.title}</span>
         </div>
       )}
     </div>
