@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { MicroCourse } from '../types';
 import { generateCourseFromSource, SUPPORTED_SOURCE_ACCEPT } from '../services/courseGenerator';
 import type { CourseGenerationProgress } from '../services/courseGenerator';
+import { DraftEditor, getDraftValidationErrors } from './DraftEditor';
 
 const GENERATION_STEPS = [
   { event: 'received', label: 'Läser in källfil och skapar jobb' },
@@ -17,27 +18,6 @@ const EVENT_TO_STEP_INDEX = GENERATION_STEPS.reduce<Record<string, number>>((acc
   return acc;
 }, { working: 2 });
 
-const getDraftValidationErrors = (course: MicroCourse | null) => {
-  if (!course) return [];
-  const errors: string[] = [];
-  const roles = Array.isArray(course.roles) ? course.roles : [];
-  const matchingScenarios = Array.isArray(course.matchingScenarios) ? course.matchingScenarios : [];
-  const quizQuestions = Array.isArray(course.quizQuestions) ? course.quizQuestions : [];
-  const roleScenarios: Record<string, string> = course.roleScenarios && typeof course.roleScenarios === 'object' ? course.roleScenarios : {};
-
-  if (roles.length !== 3) errors.push('Kursen måste ha exakt tre roller.');
-
-  roles.forEach((role) => {
-    const matchingCount = matchingScenarios.filter((scenario) => scenario.roleId === role.id).length;
-    const quizCount = quizQuestions.filter((question) => question.roleId === role.id).length;
-    if (matchingCount < 2) errors.push(`${role.title} behöver minst två riskdetektiv-case.`);
-    if (!roleScenarios[role.id]) errors.push(`${role.title} saknar reflektionsscenario.`);
-    if (quizCount < 5) errors.push(`${role.title} behöver fem quizfrågor.`);
-  });
-
-  return errors;
-};
-
 export const CourseHome: React.FC<{
   courses: MicroCourse[];
   onSelectCourse: (course: MicroCourse) => void;
@@ -45,19 +25,11 @@ export const CourseHome: React.FC<{
 }> = ({ courses, onSelectCourse, onPublishCourse }) => {
   const [sourceTitle, setSourceTitle] = useState('');
   const [file, setFile] = useState<File | null>(null);
-  const [draftText, setDraftText] = useState('');
+  const [draftCourse, setDraftCourse] = useState<MicroCourse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [progressEvents, setProgressEvents] = useState<CourseGenerationProgress[]>([]);
   const publishedCourses = useMemo(() => courses.filter((course) => course.status === 'published'), [courses]);
-  const draftCourse = useMemo(() => {
-    if (!draftText.trim()) return null;
-    try {
-      return JSON.parse(draftText) as MicroCourse;
-    } catch {
-      return null;
-    }
-  }, [draftText]);
   const draftValidationErrors = useMemo(() => getDraftValidationErrors(draftCourse), [draftCourse]);
   const activeStep = useMemo(() => {
     const latest = progressEvents[progressEvents.length - 1];
@@ -69,14 +41,14 @@ export const CourseHome: React.FC<{
     if (!file) return;
     setLoading(true);
     setError('');
-    setDraftText('');
+    setDraftCourse(null);
     setProgressEvents([]);
 
     try {
       const draft = await generateCourseFromSource(file, sourceTitle.trim() || file.name, (progressEvent) => {
         setProgressEvents((events) => [...events, progressEvent]);
       });
-      setDraftText(JSON.stringify(draft, null, 2));
+      setDraftCourse(draft);
     } catch (generationError) {
       const message = generationError instanceof Error ? generationError.message : 'Kunde inte generera kursutkast.';
       setError(message);
@@ -86,25 +58,21 @@ export const CourseHome: React.FC<{
   };
 
   const handlePublish = () => {
-    try {
-      const parsed = JSON.parse(draftText) as MicroCourse;
-      const validationErrors = getDraftValidationErrors(parsed);
-      if (validationErrors.length) {
-        setError(`Utkastet kan inte publiceras ännu:\n${validationErrors.join('\n')}`);
-        return;
-      }
-      onPublishCourse({
-        ...parsed,
-        status: 'published',
-        createdAt: parsed.createdAt || new Date().toISOString(),
-      });
-      setDraftText('');
-      setFile(null);
-      setSourceTitle('');
-      setError('');
-    } catch {
-      setError('Utkastet innehåller ogiltig JSON och kan inte publiceras.');
+    if (!draftCourse) return;
+    const validationErrors = getDraftValidationErrors(draftCourse);
+    if (validationErrors.length) {
+      setError(`Utkastet kan inte publiceras ännu:\n${validationErrors.join('\n')}`);
+      return;
     }
+    onPublishCourse({
+      ...draftCourse,
+      status: 'published',
+      createdAt: draftCourse.createdAt || new Date().toISOString(),
+    });
+    setDraftCourse(null);
+    setFile(null);
+    setSourceTitle('');
+    setError('');
   };
 
   return (
@@ -204,61 +172,13 @@ export const CourseHome: React.FC<{
 
         {error && <div className="mb-4 bg-red-500/20 border border-red-300/20 text-red-100 rounded-xl p-3 text-sm whitespace-pre-wrap">{error}</div>}
 
-        {draftText && (
-          <div className="space-y-4">
-            <div className="bg-amber-100 text-amber-900 border border-amber-200 rounded-xl p-4 text-sm font-medium">
-              Granska och justera JSON-utkastet innan publicering. Kontrollera särskilt regler, scenarier och quiz mot källan.
-            </div>
-            {draftCourse && (
-              <div className="bg-white/10 border border-white/10 rounded-2xl p-4 space-y-4">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-widest text-blue-200 mb-2">Roller i utkastet</p>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    {(Array.isArray(draftCourse.roles) ? draftCourse.roles : []).map((role) => (
-                      <div key={role.id} className="rounded-xl bg-slate-950/40 border border-white/10 p-3">
-                        <div className="flex items-center gap-2 text-sm font-bold">
-                          <i className={`fa-solid ${role.icon || 'fa-user-circle'} text-blue-300`}></i>
-                          {role.title}
-                        </div>
-                        <p className="text-xs text-slate-300 mt-1">{role.focus}</p>
-                        <p className="text-[10px] text-slate-500 mt-2">
-                          {(Array.isArray(draftCourse.matchingScenarios) ? draftCourse.matchingScenarios : []).filter((scenario) => scenario.roleId === role.id).length} case · {(Array.isArray(draftCourse.quizQuestions) ? draftCourse.quizQuestions : []).filter((question) => question.roleId === role.id).length} quiz
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <p className="text-xs font-black uppercase tracking-widest text-blue-200 mb-2">Källprinciper</p>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                    {(Array.isArray(draftCourse.rules) ? draftCourse.rules : []).slice(0, 9).map((rule) => (
-                      <div key={rule.id} className="rounded-lg bg-white/5 border border-white/10 p-2 text-xs">
-                        <span className="font-bold text-white">Regel {rule.id}: </span>
-                        <span className="text-slate-300">{rule.title}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                {draftValidationErrors.length > 0 && (
-                  <div className="rounded-xl bg-red-500/20 border border-red-300/20 text-red-100 p-3 text-xs whitespace-pre-wrap">
-                    {draftValidationErrors.join('\n')}
-                  </div>
-                )}
-              </div>
-            )}
-            <textarea
-              value={draftText}
-              onChange={(event) => setDraftText(event.target.value)}
-              className="w-full h-96 bg-slate-950 border border-white/10 rounded-xl p-4 font-mono text-xs text-slate-100 outline-none focus:border-blue-300"
-            />
-            <button
-              onClick={handlePublish}
-              disabled={draftValidationErrors.length > 0}
-              className="w-full bg-green-600 disabled:bg-slate-600 disabled:text-slate-300 text-white rounded-xl px-5 py-3 font-bold hover:bg-green-500 transition-all"
-            >
-              Publicera granskad kurs lokalt
-            </button>
-          </div>
+        {draftCourse && (
+          <DraftEditor
+            course={draftCourse}
+            onChange={setDraftCourse}
+            onPublish={handlePublish}
+            validationErrors={draftValidationErrors}
+          />
         )}
       </section>
     </main>
