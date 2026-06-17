@@ -27,7 +27,12 @@ export default async (req) => {
   }
 
   if (job.status === "failed") {
-    return jsonResponse({ status: "failed", error: job.error || "Kunde inte generera kursutkast." });
+    return jsonResponse({
+      status: "failed",
+      error: job.error || "Kunde inte generera kursutkast.",
+      metadata: job.metadata,
+      updatedAt: job.updatedAt,
+    });
   }
 
   return jsonResponse({

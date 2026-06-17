@@ -62,10 +62,13 @@ export const completeJob = async (jobId, course) => {
 };
 
 export const failJob = async (jobId, error) => {
+  const existing = await getJob(jobId);
   await saveJob(jobId, {
+    ...(existing || {}),
     jobId,
     status: "failed",
     error,
+    metadata: existing?.metadata,
     failedAt: new Date().toISOString(),
   });
 };

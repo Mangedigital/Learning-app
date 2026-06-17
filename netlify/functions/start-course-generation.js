@@ -1,5 +1,6 @@
 import { createProcessingJob, saveJobSource } from "./course-generation-jobs.js";
 import { validateGenerationInput } from "./course-generation-core.js";
+import { ingestUploadedFile, isPdfMimeType, isTextLikeMimeType } from "./document-ingestion.js";
 
 const jsonResponse = (body, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -10,27 +11,27 @@ const jsonResponse = (body, status = 200) =>
 const fileToSourceBody = async ({ jobId, sourceTitle, file }) => {
   const fileName = file.name || "source";
   const fileMimeType = file.type || "application/octet-stream";
-  const lowerName = fileName.toLowerCase();
-  const isText = fileMimeType.startsWith("text/") || lowerName.endsWith(".txt") || lowerName.endsWith(".md");
+  const ingestion = await ingestUploadedFile({ file, fileName, fileMimeType });
 
-  if (isText) {
-    return {
-      jobId,
-      sourceTitle,
-      fileName,
-      fileMimeType,
-      sourceText: await file.text(),
-    };
-  }
-
-  const bytes = Buffer.from(await file.arrayBuffer());
-  return {
+  const sourceBody = {
     jobId,
     sourceTitle,
     fileName,
     fileMimeType,
-    fileBase64: bytes.toString("base64"),
+    sourceText: ingestion.sourceText,
+    extraction: ingestion.extraction,
   };
+
+  if (!isTextLikeMimeType(fileMimeType, fileName)) {
+    const bytes = Buffer.from(await file.arrayBuffer());
+    sourceBody.fileBase64 = bytes.toString("base64");
+  }
+
+  if (isPdfMimeType(fileMimeType, fileName)) {
+    sourceBody.documentFallback = "gemini_file_api";
+  }
+
+  return sourceBody;
 };
 
 const readRequestBody = async (req) => {
@@ -81,11 +82,14 @@ export default async (req) => {
       sourceTitle: input.sourceTitle,
       fileName: input.fileName,
       resolvedMimeType: input.resolvedMimeType,
+      extraction: input.extraction,
       sourceTextLength: input.sourceTextLength,
       fileBase64Length: input.fileBase64Length,
-      generationMode: input.isTextSource ? "text" : "gemini_file_api",
+      generationMode: input.isTextSource ? "extracted_text" : "gemini_file_api",
       stage: "source_saved",
-      message: "Källfilen är mottagen och sparad server-side.",
+      message: input.isTextSource
+        ? "Dokumenttexten är extraherad och sparad server-side."
+        : "Källfilen är sparad server-side. Textutvinning var otillräcklig, så filtolkning används som fallback.",
     });
 
     return jsonResponse({ jobId, status: "processing" }, 202);

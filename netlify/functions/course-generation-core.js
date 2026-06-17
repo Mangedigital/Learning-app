@@ -1,20 +1,27 @@
 const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash-lite"];
 const GEMINI_API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
 const GEMINI_FILE_UPLOAD_URL = "https://generativelanguage.googleapis.com/upload/v1beta/files";
+const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
+const NVIDIA_API_URL = "https://integrate.api.nvidia.com/v1/chat/completions";
 const GEMINI_RETRY_DELAYS_MS = [1_500, 4_000, 8_000];
 const MAX_FILE_SIZE_BASE64 = 8_000_000;
 const MAX_TEXT_LENGTH = 120_000;
+const MIN_TEXT_LENGTH = 50;
+const WEAK_PDF_CHARS_PER_PAGE = 80;
 const SUPPORTED_MIME_TYPES = new Set([
   "application/pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "text/markdown",
   "text/plain",
 ]);
 const SUPPORTED_EXTENSIONS = {
   ".pdf": "application/pdf",
+  ".doc": "application/msword",
+  ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   ".md": "text/markdown",
   ".txt": "text/plain",
 };
-export const friendlySupportedTypes = () => "PDF, Markdown (.md) eller text (.txt). Word behöver sparas som PDF först.";
+export const friendlySupportedTypes = () => "PDF, Word (.docx), Markdown (.md) eller text (.txt). Äldre .doc behöver sparas som .docx eller PDF.";
 
 export const inferMimeType = (fileName, fileMimeType) => {
   if (SUPPORTED_MIME_TYPES.has(fileMimeType)) return fileMimeType;
@@ -24,9 +31,24 @@ export const inferMimeType = (fileName, fileMimeType) => {
 };
 
 export const isTextMimeType = (mimeType) => mimeType === "text/plain" || mimeType === "text/markdown";
+export const isDocxMimeType = (mimeType) => mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+export const isPdfMimeType = (mimeType) => mimeType === "application/pdf";
+
+const hasStrongExtractedText = (text, extraction, resolvedMimeType) => {
+  const length = typeof text === "string" ? text.trim().length : 0;
+  if (length < MIN_TEXT_LENGTH) return false;
+  if (
+    isPdfMimeType(resolvedMimeType) &&
+    extraction?.pageCount &&
+    length / extraction.pageCount < WEAK_PDF_CHARS_PER_PAGE
+  ) {
+    return false;
+  }
+  return true;
+};
 
 export const validateGenerationInput = (body) => {
-  const { sourceTitle, fileName, fileMimeType, fileBase64, sourceText } = body;
+  const { sourceTitle, fileName, fileMimeType, fileBase64, sourceText, extraction, documentFallback } = body;
   if (
     typeof sourceTitle !== "string" ||
     typeof fileName !== "string" ||
@@ -36,22 +58,29 @@ export const validateGenerationInput = (body) => {
   }
 
   const resolvedMimeType = inferMimeType(fileName, fileMimeType);
+  if (resolvedMimeType === "application/msword") {
+    throw new Error("Äldre Word-format (.doc) stöds inte i v1. Spara dokumentet som .docx eller PDF.");
+  }
+
   if (!SUPPORTED_MIME_TYPES.has(resolvedMimeType)) {
     throw new Error(`Filtypen stöds inte ännu. Använd ${friendlySupportedTypes()}.`);
   }
 
-  const isTextSource = isTextMimeType(resolvedMimeType);
-  if (isTextSource && typeof sourceText !== "string") {
-    throw new Error("Textkällan kunde inte läsas av webbläsaren.");
+  const trimmedSourceText = typeof sourceText === "string" ? sourceText.trim().substring(0, MAX_TEXT_LENGTH) : "";
+  const hasStrongText = hasStrongExtractedText(trimmedSourceText, extraction, resolvedMimeType);
+  const isTextSource = isTextMimeType(resolvedMimeType) || isDocxMimeType(resolvedMimeType) || hasStrongText;
+
+  if ((isTextMimeType(resolvedMimeType) || isDocxMimeType(resolvedMimeType)) && typeof sourceText !== "string") {
+    throw new Error("Dokumenttexten kunde inte läsas.");
   }
 
   if (!isTextSource && typeof fileBase64 !== "string") {
-    throw new Error("Dokumentet kunde inte skickas till generatorn.");
+    const diagnostics = extraction?.diagnostics ? ` Diagnostik: ${JSON.stringify(extraction.diagnostics).slice(0, 400)}` : "";
+    throw new Error(`Dokumentet kunde inte skickas till generatorn och ingen tillräcklig text kunde extraheras.${diagnostics}`);
   }
 
-  const trimmedSourceText = typeof sourceText === "string" ? sourceText.trim().substring(0, MAX_TEXT_LENGTH) : "";
   if (isTextSource && trimmedSourceText.length < 50) {
-    throw new Error("Textkällan är för kort för att skapa en mikrokurs.");
+    throw new Error("Dokumenttexten är för kort för att skapa en mikrokurs.");
   }
 
   if (!isTextSource && typeof fileBase64 === "string" && fileBase64.length > MAX_FILE_SIZE_BASE64) {
@@ -67,6 +96,8 @@ export const validateGenerationInput = (body) => {
     resolvedMimeType,
     isTextSource,
     trimmedSourceText,
+    extraction,
+    documentFallback,
     fileBase64Length: typeof fileBase64 === "string" ? fileBase64.length : 0,
     sourceTextLength: typeof sourceText === "string" ? sourceText.length : 0,
   };
@@ -267,6 +298,96 @@ ${text}`;
   };
 };
 
+const generateJsonWithOpenAiCompatibleProvider = async ({
+  provider,
+  apiKey,
+  model,
+  apiUrl,
+  prompt,
+  systemInstruction,
+  sourceText,
+  onProgress,
+}) => {
+  await onProgress?.({
+    stage: "generating_course",
+    message: `${provider} skapar mikrokursutkastet med ${model}.`,
+    provider,
+    model,
+  });
+
+  const response = await fetchWithRetry(`${provider} skapar mikrokursutkastet`, () =>
+    fetch(apiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+        ...(provider === "openrouter" ? {
+          "HTTP-Referer": process.env.URL || "https://koalearning.netlify.app",
+          "X-Title": "Källbaserad mikrokursgenerator",
+        } : {}),
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: systemInstruction },
+          { role: "user", content: `${prompt}\n\nKälltext:\n\n${sourceText}` },
+        ],
+        temperature: 0.1,
+        max_tokens: 16384,
+        response_format: { type: "json_object" },
+      }),
+    }),
+    onProgress
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`${provider} kunde inte skapa kursen (${response.status}): ${summarizeGeminiError(errorText)}`);
+  }
+
+  const data = await response.json();
+  const text = data?.choices?.[0]?.message?.content;
+  if (!text || typeof text !== "string") {
+    throw new Error(`${provider} returnerade inget kursutkast.`);
+  }
+
+  return { text, model, provider };
+};
+
+const finalizeGeneratedCourse = async ({ text, model, provider = "gemini", apiKey, onProgress }) => {
+  await onProgress?.({
+    stage: "parsing_response",
+    message: "Tolkar AI-svaret som kurs-JSON.",
+    responseTextLength: text.length,
+    model,
+    provider,
+  });
+
+  try {
+    return {
+      course: extractJsonObject(text),
+      responseTextLength: text.length,
+      model,
+      provider,
+    };
+  } catch (error) {
+    if (!apiKey) {
+      throw new Error(`AI-svaret kunde inte tolkas som kurs-JSON och GEMINI_API_KEY saknas för JSON-reparation. ${error instanceof Error ? error.message : ""}`);
+    }
+
+    const repaired = await repairCourseJson({
+      apiKey,
+      text,
+      parseError: error,
+      onProgress,
+    });
+    return {
+      ...repaired,
+      provider,
+    };
+  }
+};
+
 const uploadGeminiFile = async ({ apiKey, fileName, mimeType, fileBase64, onProgress }) => {
   const bytes = Buffer.from(fileBase64, "base64");
   await onProgress?.({
@@ -389,25 +510,114 @@ export const generateCourseWithGemini = async ({ apiKey, input, useFileApi = fal
     onProgress,
   });
 
-  await onProgress?.({
-    stage: "parsing_response",
-    message: "Tolkar Gemini-svaret som kurs-JSON.",
-    responseTextLength: generated.text.length,
+  return finalizeGeneratedCourse({
+    text: generated.text,
     model: generated.model,
+    provider: "gemini",
+    apiKey,
+    onProgress,
+  });
+};
+
+const getProviderPreference = () => {
+  const provider = (process.env.COURSE_AI_PROVIDER || "gemini").toLowerCase();
+  return ["gemini", "openrouter", "nvidia"].includes(provider) ? provider : "gemini";
+};
+
+const getFallbackProvider = () => {
+  const provider = (process.env.COURSE_AI_FALLBACK_PROVIDER || "gemini").toLowerCase();
+  return ["gemini", "openrouter", "nvidia"].includes(provider) ? provider : "gemini";
+};
+
+const requireEnv = (key) => {
+  const value = process.env[key];
+  if (!value) throw new Error(`${key} är inte konfigurerad på servern.`);
+  return value;
+};
+
+const generateCourseWithOpenRouter = async ({ input, onProgress }) => {
+  const { systemInstruction, prompt } = buildInstructions(input);
+  const generated = await generateJsonWithOpenAiCompatibleProvider({
+    provider: "openrouter",
+    apiKey: requireEnv("OPENROUTER_API_KEY"),
+    model: process.env.OPENROUTER_MODEL || "google/gemini-2.5-flash",
+    apiUrl: OPENROUTER_API_URL,
+    prompt,
+    systemInstruction,
+    sourceText: input.trimmedSourceText,
+    onProgress,
   });
 
-  try {
-    return {
-      course: extractJsonObject(generated.text),
-      responseTextLength: generated.text.length,
-      model: generated.model,
-    };
-  } catch (error) {
-    return repairCourseJson({
-      apiKey,
-      text: generated.text,
-      parseError: error,
-      onProgress,
+  return finalizeGeneratedCourse({
+    text: generated.text,
+    model: generated.model,
+    provider: "openrouter",
+    apiKey: process.env.GEMINI_API_KEY,
+    onProgress,
+  });
+};
+
+const generateCourseWithNvidia = async ({ input, onProgress }) => {
+  const { systemInstruction, prompt } = buildInstructions(input);
+  const generated = await generateJsonWithOpenAiCompatibleProvider({
+    provider: "nvidia",
+    apiKey: requireEnv("NVIDIA_API_KEY"),
+    model: process.env.NVIDIA_MODEL || "meta/llama-3.3-70b-instruct",
+    apiUrl: NVIDIA_API_URL,
+    prompt,
+    systemInstruction,
+    sourceText: input.trimmedSourceText,
+    onProgress,
+  });
+
+  return finalizeGeneratedCourse({
+    text: generated.text,
+    model: generated.model,
+    provider: "nvidia",
+    apiKey: process.env.GEMINI_API_KEY,
+    onProgress,
+  });
+};
+
+const generateCourseWithSelectedProvider = async ({ provider, input, onProgress }) => {
+  if (provider === "openrouter") return generateCourseWithOpenRouter({ input, onProgress });
+  if (provider === "nvidia") return generateCourseWithNvidia({ input, onProgress });
+
+  return generateCourseWithGemini({
+    apiKey: requireEnv("GEMINI_API_KEY"),
+    input,
+    useFileApi: !input.isTextSource,
+    onProgress,
+  });
+};
+
+export const generateCourse = async ({ input, onProgress }) => {
+  const provider = getProviderPreference();
+  const fallbackProvider = getFallbackProvider();
+
+  if (!input.isTextSource && provider !== "gemini") {
+    await onProgress?.({
+      stage: "using_document_fallback",
+      message: "PDF-texten var otillräcklig. Använder Gemini File API som dokumentfallback.",
+      provider: "gemini",
+      requestedProvider: provider,
     });
+    return generateCourseWithSelectedProvider({ provider: "gemini", input, onProgress });
+  }
+
+  try {
+    return await generateCourseWithSelectedProvider({ provider, input, onProgress });
+  } catch (error) {
+    if (fallbackProvider === provider) throw error;
+
+    await onProgress?.({
+      stage: "provider_fallback",
+      message: `${provider} misslyckades. Försöker med ${fallbackProvider}.`,
+      provider,
+      fallbackProvider,
+      error: error instanceof Error ? error.message : "Okänt provider-fel.",
+    });
+
+    return generateCourseWithSelectedProvider({ provider: fallbackProvider, input, onProgress });
   }
 };

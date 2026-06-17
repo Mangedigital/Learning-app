@@ -6,9 +6,9 @@ import { DraftEditor, getDraftValidationErrors } from './DraftEditor';
 
 const GENERATION_STEPS = [
   { event: 'received', label: 'Läser in källfil och skapar jobb' },
-  { event: 'validated', label: 'Startar background-generering' },
-  { event: 'calling_model', label: 'Laddar upp källan till Gemini File API' },
-  { event: 'model_response', label: 'Gemini bygger kursstruktur och innehåll' },
+  { event: 'validated', label: 'Analyserar dokument och extraherar text' },
+  { event: 'calling_model', label: 'Dokumenttext klar för kursgenerering' },
+  { event: 'model_response', label: 'AI-modellen bygger kursstruktur och innehåll' },
   { event: 'parsing', label: 'Sparar kursutkastet för granskning' },
   { event: 'complete', label: 'Kursutkast klart' },
 ];
@@ -117,7 +117,7 @@ export const CourseHome: React.FC<{
           </div>
           <div>
             <h2 className="text-xl md:text-2xl font-black">Skapa kursutkast från källfil</h2>
-            <p className="text-sm text-slate-300">Stödjer PDF, Markdown och text. Word behöver sparas som PDF i den här prototypen. AI-genererat innehåll måste granskas innan publicering.</p>
+            <p className="text-sm text-slate-300">Stödjer PDF, Word (.docx), Markdown och text. AI-genererat innehåll måste granskas innan publicering.</p>
           </div>
         </div>
 

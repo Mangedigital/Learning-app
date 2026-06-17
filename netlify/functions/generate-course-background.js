@@ -1,5 +1,5 @@
 import { completeJob, failJob, getJobSource, updateProcessingJob } from "./course-generation-jobs.js";
-import { generateCourseWithGemini, validateGenerationInput } from "./course-generation-core.js";
+import { generateCourse, validateGenerationInput } from "./course-generation-core.js";
 
 const jsonResponse = (body, status) =>
   new Response(JSON.stringify(body), {
@@ -36,12 +36,6 @@ export default async (req) => {
     return jsonResponse({ error: "job_id saknas." }, 400);
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    await failJob(jobId, "API key not configured on server");
-    return;
-  }
-
   try {
     const sourceBody = body.fileBase64 || body.sourceText ? body : await getJobSource(jobId);
     if (!sourceBody) {
@@ -53,20 +47,27 @@ export default async (req) => {
       sourceTitle: input.sourceTitle,
       fileName: input.fileName,
       resolvedMimeType: input.resolvedMimeType,
+      extraction: input.extraction,
       sourceTextLength: input.sourceTextLength,
       fileBase64Length: input.fileBase64Length,
-      generationMode: input.isTextSource ? "text" : "gemini_file_api",
+      generationMode: input.isTextSource ? "extracted_text" : "gemini_file_api",
       stage: "background_started",
-      message: "Background-funktionen har hämtat källfilen från serverlagret.",
+      message: input.isTextSource
+        ? "Background-funktionen har hämtat extraherad dokumenttext från serverlagret."
+        : "Background-funktionen använder dokumentfallback eftersom textutvinningen var otillräcklig.",
     });
 
-    const { course } = await generateCourseWithGemini({
-      apiKey,
+    const { course, provider, model } = await generateCourse({
       input,
-      useFileApi: !input.isTextSource,
       onProgress: (metadata) => updateProcessingJob(jobId, metadata),
     });
 
+    await updateProcessingJob(jobId, {
+      stage: "course_generated",
+      message: `Kursutkastet är genererat med ${provider}${model ? ` (${model})` : ""}.`,
+      provider,
+      model,
+    });
     await completeJob(jobId, course);
   } catch (error) {
     console.error("Background course generation failed:", error);

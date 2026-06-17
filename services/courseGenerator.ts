@@ -1,6 +1,6 @@
 import { MicroCourse } from '../types';
 
-export const SUPPORTED_SOURCE_ACCEPT = '.pdf,.md,.txt,application/pdf,text/markdown,text/plain';
+export const SUPPORTED_SOURCE_ACCEPT = '.pdf,.docx,.md,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/markdown,text/plain';
 
 export type CourseGenerationProgress = {
   event: string;
@@ -21,9 +21,21 @@ const readErrorMessage = async (response: Response) => {
 };
 
 const formatStreamError = (event: CourseGenerationProgress) => {
+  const metadata = event.metadata && typeof event.metadata === 'object' ? event.metadata as Record<string, unknown> : {};
+  const extraction = metadata.extraction && typeof metadata.extraction === 'object'
+    ? metadata.extraction as Record<string, unknown>
+    : {};
+  const diagnostics = extraction.diagnostics && typeof extraction.diagnostics === 'object'
+    ? extraction.diagnostics as Record<string, unknown>
+    : {};
   const details = [
     event.step ? `Steg: ${event.step}` : '',
     event.jobId ? `Jobb: ${event.jobId}` : '',
+    typeof metadata.resolvedMimeType === 'string' ? `Filtyp: ${metadata.resolvedMimeType}` : '',
+    typeof extraction.extractionMethod === 'string' ? `Extraktion: ${extraction.extractionMethod}` : '',
+    typeof extraction.pageCount === 'number' ? `Sidor: ${extraction.pageCount}` : '',
+    typeof extraction.wordCount === 'number' ? `Ord: ${extraction.wordCount}` : '',
+    typeof diagnostics.textLength === 'number' ? `Extraherad textlängd: ${diagnostics.textLength}` : '',
     typeof event.geminiStatus === 'number' ? `Gemini-status: ${event.geminiStatus}` : '',
     typeof event.timeoutMs === 'number' ? `Timeout: ${Math.round(event.timeoutMs / 1000)} sekunder` : '',
     typeof event.bodySummary === 'string' ? `Svar: ${event.bodySummary}` : '',
@@ -134,6 +146,7 @@ export const generateCourseFromSource = async (
         step: 'background',
         message: status.error || 'Background-jobbet misslyckades.',
         jobId,
+        metadata: status.metadata,
       }));
     }
 
@@ -149,7 +162,7 @@ export const generateCourseFromSource = async (
     onProgress?.({
       event: progressEvent,
       step: progressEvent,
-      message: status.message || 'Background-jobbet bearbetar källan med Gemini File API.',
+      message: status.message || 'Background-jobbet bearbetar dokumentet och bygger kursutkastet.',
       jobId,
       elapsedSeconds: (pollCount + 1) * 3,
       metadata: status.metadata,
