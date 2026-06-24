@@ -48,7 +48,7 @@ const hasStrongExtractedText = (text, extraction, resolvedMimeType) => {
 };
 
 export const validateGenerationInput = (body) => {
-  const { sourceTitle, fileName, fileMimeType, fileBase64, sourceText, extraction, documentFallback } = body;
+  const { sourceTitle, roleCount, fileName, fileMimeType, fileBase64, sourceText, extraction, documentFallback } = body;
   if (
     typeof sourceTitle !== "string" ||
     typeof fileName !== "string" ||
@@ -87,8 +87,11 @@ export const validateGenerationInput = (body) => {
     throw new Error("Filen är för stor för prototypen. Testa en fil under cirka 6 MB.");
   }
 
+  const normalizedRoleCount = [1, 2, 3, 4].includes(Number(roleCount)) ? Number(roleCount) : 3;
+
   return {
     sourceTitle,
+    roleCount: normalizedRoleCount,
     fileName,
     fileMimeType,
     fileBase64,
@@ -158,20 +161,23 @@ const fetchWithRetry = async (label, requestFactory, onProgress) => {
   return lastResponse;
 };
 
-const buildInstructions = ({ sourceTitle, fileName }) => {
+const buildInstructions = ({ sourceTitle, fileName, roleCount = 3 }) => {
+  const roleIds = Array.from({ length: roleCount }, (_, index) => `roll-${index + 1}`);
   const systemInstruction = `Du skapar svenska mikrolärandekurser från en källfil.
 Returnera endast strikt JSON utan markdown. Inga kommentarer.
 Kursen ska vara ett faktakontrollerbart utkast som en administratör granskar innan publicering.
-Föreslå exakt tre roller som är relevanta för källan. Roller ska vara specifika för källans målgrupper, inte fasta standardroller.
+Föreslå exakt ${roleCount} roller som är relevanta för källan. Roller ska vara specifika för källans målgrupper, inte fasta standardroller.
 Varje roll ska ha id, title, description, focus och FontAwesome-ikon i formatet fa-...
-Skapa samma struktur för alla tre roller:
+Skapa samma struktur för alla roller:
 - 9 regler/principer från källan
 - 3 moduler: matching, reflection, quiz
 - minst 2 matching-scenarier per roll
 - 1 reflektionsscenario per roll
 - 5 sant/falskt quizfrågor per roll
+- minst 1 rollspecifik nanokursdel per roll med ämne, kort innehåll, CTA, föreslaget utskickssteg och påminnelsetext
 Koppla allt rollinnehåll via roleId. Använd exakt samma roleId i roles, matchingScenarios, roleScenarios och quizQuestions.
-Alla scenarier och quizförklaringar ska vara korta, praktiska och källnära.`;
+Alla scenarier, quizförklaringar och nanokursdelar ska vara korta, praktiska och källnära.
+Mejlkampanjen ska vara ett utkast. Den ska aldrig påstå att mejl redan har skickats.`;
 
   const prompt = `Skapa ett MicroCourse JSON-objekt från källan "${sourceTitle}".
 JSON-format:
@@ -181,18 +187,21 @@ JSON-format:
   "description": "kort beskrivning",
   "sourceTitle": "${sourceTitle}",
   "sourceFileName": "${fileName}",
+  "roleCount": ${roleCount},
   "createdAt": "${new Date().toISOString()}",
   "status": "draft",
   "roles": [{"id":"roll-1","title":"...","description":"...","focus":"...","icon":"fa-user-tie"}],
   "rules": [{"id":1,"title":"...","content":"..."}],
   "modules": [
-    {"id":"1.1","title":"Risk-detektiven","description":"...","type":"matching","metadata":{"roleIds":["roll-1","roll-2","roll-3"],"level":1,"category":"Etik","durationMinutes":10}},
-    {"id":"1.2","title":"Människan i loopen","description":"...","type":"reflection","metadata":{"roleIds":["roll-1","roll-2","roll-3"],"level":1,"category":"Ansvar","durationMinutes":15}},
-    {"id":"1.3","title":"Gråzons-Quiz","description":"...","type":"quiz","metadata":{"roleIds":["roll-1","roll-2","roll-3"],"level":1,"category":"Juridik","durationMinutes":5}}
+    {"id":"1.1","title":"Risk-detektiven","description":"...","type":"matching","metadata":{"roleIds":${JSON.stringify(roleIds)},"level":1,"category":"Etik","durationMinutes":10}},
+    {"id":"1.2","title":"Människan i loopen","description":"...","type":"reflection","metadata":{"roleIds":${JSON.stringify(roleIds)},"level":1,"category":"Ansvar","durationMinutes":15}},
+    {"id":"1.3","title":"Gråzons-Quiz","description":"...","type":"quiz","metadata":{"roleIds":${JSON.stringify(roleIds)},"level":1,"category":"Juridik","durationMinutes":5}}
   ],
   "matchingScenarios": [{"id":"roll-1-case-1","roleId":"roll-1","text":"...","correctRuleId":1,"explanation":"...","sourceQuote":"Källa: ${sourceTitle}","clue":"...","socraticQuestion":"...","options":[1,2,3,4]}],
-  "roleScenarios": {"roll-1":"...","roll-2":"...","roll-3":"..."},
+  "roleScenarios": {"roll-1":"..."},
   "quizQuestions": [{"id":"roll-1-q1","roleId":"roll-1","ruleIds":[1,6],"question":"...","answer":true,"explanation":"..."}],
+  "nanoCourse": [{"id":"roll-1-nano-1","roleId":"roll-1","subject":"...","body":"...","cta":"...","suggestedSendStep":"Dag 1","reminderText":"..."}],
+  "emailCampaignDraft": {"status":"draft","subjectTemplate":"{{nanoSubject}}","introText":"...","recipientGroups":[]},
   "resources": []
 }`;
 

@@ -45,6 +45,7 @@ export default async (req) => {
     const input = validateGenerationInput(sourceBody);
     await updateProcessingJob(jobId, {
       sourceTitle: input.sourceTitle,
+      roleCount: input.roleCount,
       fileName: input.fileName,
       resolvedMimeType: input.resolvedMimeType,
       extraction: input.extraction,

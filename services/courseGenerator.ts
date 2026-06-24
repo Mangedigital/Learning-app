@@ -73,6 +73,7 @@ const getJobStatus = async (jobId: string): Promise<JobStatusResponse> => {
 export const generateCourseFromSource = async (
   file: File,
   sourceTitle: string,
+  roleCount: number,
   onProgress?: (event: CourseGenerationProgress) => void
 ): Promise<MicroCourse> => {
   const jobId = createJobId();
@@ -81,6 +82,7 @@ export const generateCourseFromSource = async (
     fileName: file.name,
     fileSize: file.size,
     fileMimeType: file.type || 'application/octet-stream',
+    roleCount,
     requestContentType: 'multipart/form-data',
     transport: 'formData',
   });
@@ -95,6 +97,7 @@ export const generateCourseFromSource = async (
   const sourcePayload = new FormData();
   sourcePayload.append('jobId', jobId);
   sourcePayload.append('sourceTitle', sourceTitle);
+  sourcePayload.append('roleCount', String(roleCount));
   sourcePayload.append('file', file, file.name);
 
   const startResponse = await fetch('/api/start-course-generation', {

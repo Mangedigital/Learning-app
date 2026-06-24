@@ -8,7 +8,13 @@ const jsonResponse = (body, status = 200) =>
     headers: { "Content-Type": "application/json" },
   });
 
-const fileToSourceBody = async ({ jobId, sourceTitle, file }) => {
+const normalizeRoleCount = (value) => {
+  const count = Number(value);
+  if (count === 1 || count === 2 || count === 3 || count === 4) return count;
+  return 3;
+};
+
+const fileToSourceBody = async ({ jobId, sourceTitle, roleCount, file }) => {
   const fileName = file.name || "source";
   const fileMimeType = file.type || "application/octet-stream";
   const ingestion = await ingestUploadedFile({ file, fileName, fileMimeType });
@@ -16,6 +22,7 @@ const fileToSourceBody = async ({ jobId, sourceTitle, file }) => {
   const sourceBody = {
     jobId,
     sourceTitle,
+    roleCount: normalizeRoleCount(roleCount),
     fileName,
     fileMimeType,
     sourceText: ingestion.sourceText,
@@ -49,8 +56,9 @@ const readRequestBody = async (req) => {
     const sourceTitle = typeof form.get("sourceTitle") === "string" && form.get("sourceTitle")
       ? String(form.get("sourceTitle"))
       : file.name;
+    const roleCount = form.get("roleCount");
 
-    return fileToSourceBody({ jobId, sourceTitle, file });
+    return fileToSourceBody({ jobId, sourceTitle, roleCount, file });
   }
 
   return req.json();
@@ -80,6 +88,7 @@ export default async (req) => {
     await saveJobSource(jobId, body);
     await createProcessingJob(jobId, {
       sourceTitle: input.sourceTitle,
+      roleCount: input.roleCount,
       fileName: input.fileName,
       resolvedMimeType: input.resolvedMimeType,
       extraction: input.extraction,

@@ -6,6 +6,7 @@ export enum CourseLevel {
 }
 
 export type RoleId = string;
+export type CourseRoleCount = 1 | 2 | 3 | 4;
 
 export interface CourseRole {
   id: RoleId;
@@ -34,6 +35,36 @@ export interface ResourceLink {
   title: string;
   href: string;
   format: 'PDF' | 'Word' | 'Link';
+}
+
+export interface NanoCoursePart {
+  id: string;
+  roleId: RoleId;
+  subject: string;
+  body: string;
+  cta: string;
+  suggestedSendStep: string;
+  reminderText: string;
+}
+
+export interface EmailRecipientGroup {
+  id: string;
+  label: string;
+  roleId?: RoleId;
+  emails: string[];
+}
+
+export interface EmailCampaignDraft {
+  status: 'draft';
+  subjectTemplate: string;
+  introText: string;
+  recipientGroups: EmailRecipientGroup[];
+}
+
+export interface EmailDeliveryProvider {
+  id: string;
+  label: string;
+  sendPreview?: boolean;
 }
 
 export interface QuizQuestion {
@@ -74,6 +105,7 @@ export interface MicroCourse {
   description: string;
   sourceTitle: string;
   sourceFileName?: string;
+  roleCount?: CourseRoleCount;
   createdAt: string;
   status: 'draft' | 'published';
   roles: CourseRole[];
@@ -82,5 +114,7 @@ export interface MicroCourse {
   matchingScenarios: MatchingScenario[];
   roleScenarios: Record<RoleId, string>;
   quizQuestions: QuizQuestion[];
+  nanoCourse: NanoCoursePart[];
+  emailCampaignDraft?: EmailCampaignDraft;
   resources: ResourceLink[];
 }

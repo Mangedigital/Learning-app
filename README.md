@@ -30,3 +30,5 @@ The course generator defaults to Gemini and can optionally test other providers:
 - `NVIDIA_API_KEY` and `NVIDIA_MODEL`: required when `COURSE_AI_PROVIDER=nvidia`.
 
 PDF and `.docx` files are converted to text server-side before generation when possible. Scanned PDFs may fall back to Gemini File API if text extraction is too weak.
+
+Nanocourse email campaigns are stored as local drafts in the course data. This prototype does not send email automatically yet.

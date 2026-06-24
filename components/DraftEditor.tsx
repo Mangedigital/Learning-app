@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { GoldenRule, MatchingScenario, MicroCourse, QuizQuestion } from '../types';
+import { CourseRole, EmailRecipientGroup, GoldenRule, MatchingScenario, MicroCourse, NanoCoursePart, QuizQuestion } from '../types';
 
-type DraftSection = 'overview' | 'roles' | 'rules' | 'cases' | 'reflection' | 'quiz';
+type DraftSection = 'overview' | 'roles' | 'rules' | 'cases' | 'reflection' | 'quiz' | 'nano' | 'email';
 
 const sections: Array<{ id: DraftSection; label: string; icon: string }> = [
   { id: 'overview', label: 'Översikt', icon: 'fa-file-lines' },
@@ -10,7 +10,11 @@ const sections: Array<{ id: DraftSection; label: string; icon: string }> = [
   { id: 'cases', label: 'Riskcase', icon: 'fa-triangle-exclamation' },
   { id: 'reflection', label: 'Reflektion', icon: 'fa-comment-dots' },
   { id: 'quiz', label: 'Quiz', icon: 'fa-circle-question' },
+  { id: 'nano', label: 'Nanokurs', icon: 'fa-envelope-open-text' },
+  { id: 'email', label: 'Mejlutkast', icon: 'fa-paper-plane' },
 ];
+
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const getDraftValidationErrors = (course: MicroCourse | null) => {
   if (!course) return [];
@@ -20,14 +24,24 @@ export const getDraftValidationErrors = (course: MicroCourse | null) => {
   const quizQuestions = Array.isArray(course.quizQuestions) ? course.quizQuestions : [];
   const roleScenarios: Record<string, string> = course.roleScenarios && typeof course.roleScenarios === 'object' ? course.roleScenarios : {};
 
-  if (roles.length !== 3) errors.push('Kursen måste ha exakt tre roller.');
+  if (roles.length < 1 || roles.length > 4) errors.push('Kursen måste ha mellan en och fyra roller.');
 
   roles.forEach((role) => {
     const matchingCount = matchingScenarios.filter((scenario) => scenario.roleId === role.id).length;
     const quizCount = quizQuestions.filter((question) => question.roleId === role.id).length;
+    const nanoCount = Array.isArray(course.nanoCourse) ? course.nanoCourse.filter((part) => part.roleId === role.id).length : 0;
     if (matchingCount < 2) errors.push(`${role.title} behöver minst två riskdetektiv-case.`);
     if (!roleScenarios[role.id]) errors.push(`${role.title} saknar reflektionsscenario.`);
     if (quizCount < 5) errors.push(`${role.title} behöver fem quizfrågor.`);
+    if (nanoCount < 1) errors.push(`${role.title} behöver minst en nanokursdel.`);
+  });
+
+  course.emailCampaignDraft?.recipientGroups?.forEach((group) => {
+    group.emails.forEach((email) => {
+      if (email.trim() && !emailPattern.test(email.trim())) {
+        errors.push(`Ogiltig mejladress i ${group.label}: ${email}`);
+      }
+    });
   });
 
   return errors;
@@ -90,6 +104,31 @@ const makeQuizQuestion = (roleId: string, index: number, rules: GoldenRule[]): Q
   explanation: '',
 });
 
+const makeRole = (index: number): CourseRole => ({
+  id: `roll-${Date.now()}-${index}`,
+  title: `Ny roll ${index}`,
+  description: 'Beskriv rollens uppdrag.',
+  focus: 'Praktiskt fokus för nanokurs och mikrokurs.',
+  icon: 'fa-user-circle',
+});
+
+const makeNanoPart = (roleId: string, index: number): NanoCoursePart => ({
+  id: `${roleId}-nano-${Date.now()}-${index}`,
+  roleId,
+  subject: 'Ny nanokursdel',
+  body: 'Kort innehåll som kan skickas som mejl.',
+  cta: 'Öppna kursen och gör nästa steg.',
+  suggestedSendStep: `Dag ${index}`,
+  reminderText: 'Påminnelse: fortsätt med nanokursen när du har några minuter.',
+});
+
+const makeRecipientGroup = (role?: CourseRole): EmailRecipientGroup => ({
+  id: `group-${Date.now()}`,
+  label: role ? `${role.title}` : 'Ny mottagargrupp',
+  roleId: role?.id,
+  emails: [],
+});
+
 const parseRuleIds = (value: string) =>
   value
     .split(',')
@@ -112,6 +151,13 @@ export const DraftEditor: React.FC<{
   const activeRoleIdSafe = activeRole?.id || '';
   const roleCases = course.matchingScenarios.filter((scenario) => scenario.roleId === activeRoleIdSafe);
   const roleQuiz = course.quizQuestions.filter((question) => question.roleId === activeRoleIdSafe);
+  const roleNanoParts = (course.nanoCourse || []).filter((part) => part.roleId === activeRoleIdSafe);
+  const emailDraft = course.emailCampaignDraft || {
+    status: 'draft' as const,
+    subjectTemplate: '{{nanoSubject}}',
+    introText: `Hej! Här kommer en kort nanokurs från ${course.title}.`,
+    recipientGroups: [],
+  };
   const roleErrors = useMemo(
     () => validationErrors.filter((error) => activeRole && error.includes(activeRole.title)),
     [activeRole, validationErrors]
@@ -123,6 +169,50 @@ export const DraftEditor: React.FC<{
     patchCourse({
       roles: course.roles.map((role) => role.id === roleId ? { ...role, ...patch } : role),
     });
+  };
+
+  const addRole = () => {
+    if (course.roles.length >= 4) return;
+    const role = makeRole(course.roles.length + 1);
+    patchCourse({
+      roleCount: Math.min(course.roles.length + 1, 4) as MicroCourse['roleCount'],
+      roles: [...course.roles, role],
+      modules: course.modules.map((module) => ({
+        ...module,
+        metadata: {
+          ...module.metadata,
+          roleIds: [...new Set([...(module.metadata.roleIds || []), role.id])],
+        },
+      })),
+      roleScenarios: { ...course.roleScenarios, [role.id]: '' },
+      nanoCourse: [...(course.nanoCourse || []), makeNanoPart(role.id, 1)],
+    });
+    setActiveRoleId(role.id);
+  };
+
+  const deleteRole = (roleId: string) => {
+    if (course.roles.length <= 1) return;
+    const nextRoles = course.roles.filter((role) => role.id !== roleId);
+    patchCourse({
+      roleCount: Math.max(nextRoles.length, 1) as MicroCourse['roleCount'],
+      roles: nextRoles,
+      modules: course.modules.map((module) => ({
+        ...module,
+        metadata: {
+          ...module.metadata,
+          roleIds: (module.metadata.roleIds || []).filter((id) => id !== roleId),
+        },
+      })),
+      matchingScenarios: course.matchingScenarios.filter((scenario) => scenario.roleId !== roleId),
+      roleScenarios: Object.fromEntries(Object.entries(course.roleScenarios).filter(([id]) => id !== roleId)),
+      quizQuestions: course.quizQuestions.filter((question) => question.roleId !== roleId),
+      nanoCourse: (course.nanoCourse || []).filter((part) => part.roleId !== roleId),
+      emailCampaignDraft: {
+        ...emailDraft,
+        recipientGroups: emailDraft.recipientGroups.map((group) => group.roleId === roleId ? { ...group, roleId: undefined } : group),
+      },
+    });
+    setActiveRoleId(nextRoles[0]?.id || '');
   };
 
   const updateRule = (ruleId: number, patch: Partial<GoldenRule>) => {
@@ -181,6 +271,52 @@ export const DraftEditor: React.FC<{
     if (roleQuiz.length <= 5) return;
     patchCourse({
       quizQuestions: course.quizQuestions.filter((question) => question.id !== questionId),
+    });
+  };
+
+  const updateNanoPart = (partId: string, patch: Partial<NanoCoursePart>) => {
+    patchCourse({
+      nanoCourse: (course.nanoCourse || []).map((part) => part.id === partId ? { ...part, ...patch } : part),
+    });
+  };
+
+  const addNanoPart = () => {
+    patchCourse({
+      nanoCourse: [...(course.nanoCourse || []), makeNanoPart(activeRoleIdSafe, roleNanoParts.length + 1)],
+    });
+  };
+
+  const deleteNanoPart = (partId: string) => {
+    patchCourse({
+      nanoCourse: (course.nanoCourse || []).filter((part) => part.id !== partId),
+    });
+  };
+
+  const updateEmailDraft = (patch: Partial<typeof emailDraft>) => {
+    patchCourse({
+      emailCampaignDraft: {
+        ...emailDraft,
+        ...patch,
+        status: 'draft',
+      },
+    });
+  };
+
+  const updateRecipientGroup = (groupId: string, patch: Partial<EmailRecipientGroup>) => {
+    updateEmailDraft({
+      recipientGroups: emailDraft.recipientGroups.map((group) => group.id === groupId ? { ...group, ...patch } : group),
+    });
+  };
+
+  const addRecipientGroup = () => {
+    updateEmailDraft({
+      recipientGroups: [...emailDraft.recipientGroups, makeRecipientGroup(activeRole)],
+    });
+  };
+
+  const deleteRecipientGroup = (groupId: string) => {
+    updateEmailDraft({
+      recipientGroups: emailDraft.recipientGroups.filter((group) => group.id !== groupId),
     });
   };
 
@@ -256,9 +392,20 @@ export const DraftEditor: React.FC<{
         )}
 
         {activeSection === 'roles' && (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            {course.roles.map((role) => (
-              <div key={role.id} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <StatusPill tone={course.roles.length >= 1 && course.roles.length <= 4 ? 'ok' : 'warn'}>{course.roles.length}/4 roller</StatusPill>
+              <button
+                onClick={addRole}
+                disabled={course.roles.length >= 4}
+                className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:text-slate-300"
+              >
+                <i className="fa-solid fa-plus mr-2"></i>Lägg till roll
+              </button>
+            </div>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+              {course.roles.map((role) => (
+                <div key={role.id} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                 <div className="mb-4 flex items-center justify-between">
                   <StatusPill>{course.matchingScenarios.filter((scenario) => scenario.roleId === role.id).length} case</StatusPill>
                   <StatusPill tone={course.quizQuestions.filter((question) => question.roleId === role.id).length >= 5 ? 'ok' : 'warn'}>
@@ -270,9 +417,17 @@ export const DraftEditor: React.FC<{
                   <Field label="Fokus" value={role.focus} onChange={(focus) => updateRole(role.id, { focus })} />
                   <Field label="Ikon" value={role.icon} onChange={(icon) => updateRole(role.id, { icon })} helper="FontAwesome, t.ex. fa-user-tie." />
                   <Field label="Beskrivning" value={role.description} onChange={(description) => updateRole(role.id, { description })} textarea />
+                  <button
+                    onClick={() => deleteRole(role.id)}
+                    disabled={course.roles.length <= 1}
+                    className="w-full rounded-lg border border-red-100 bg-white px-3 py-2 text-sm font-bold text-red-600 disabled:text-slate-300"
+                  >
+                    Ta bort roll
+                  </button>
                 </div>
               </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
 
@@ -290,7 +445,7 @@ export const DraftEditor: React.FC<{
           </div>
         )}
 
-        {(activeSection === 'cases' || activeSection === 'reflection' || activeSection === 'quiz') && (
+        {(activeSection === 'cases' || activeSection === 'reflection' || activeSection === 'quiz' || activeSection === 'nano') && (
           <div className="mb-4 flex flex-wrap gap-2">
             {course.roles.map((role) => (
               <button
@@ -306,7 +461,7 @@ export const DraftEditor: React.FC<{
           </div>
         )}
 
-        {roleErrors.length > 0 && (activeSection === 'cases' || activeSection === 'reflection' || activeSection === 'quiz') && (
+        {roleErrors.length > 0 && (activeSection === 'cases' || activeSection === 'reflection' || activeSection === 'quiz' || activeSection === 'nano') && (
           <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 whitespace-pre-wrap">
             {roleErrors.join('\n')}
           </div>
@@ -406,6 +561,120 @@ export const DraftEditor: React.FC<{
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {activeSection === 'nano' && activeRole && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <StatusPill tone={roleNanoParts.length >= 1 ? 'ok' : 'warn'}>{roleNanoParts.length} nanodelar</StatusPill>
+              <button onClick={addNanoPart} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50">
+                <i className="fa-solid fa-plus mr-2"></i>Lägg till nanodel
+              </button>
+            </div>
+            {roleNanoParts.map((part, index) => (
+              <div key={part.id} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <p className="text-sm font-black text-slate-700">Nanodel {index + 1}</p>
+                  <button
+                    onClick={() => deleteNanoPart(part.id)}
+                    className="rounded-md border border-red-100 bg-white px-2.5 py-1.5 text-xs font-bold text-red-600"
+                  >
+                    Ta bort
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <Field label="Ämne" value={part.subject} onChange={(subject) => updateNanoPart(part.id, { subject })} />
+                  <Field label="Föreslaget utskick" value={part.suggestedSendStep} onChange={(suggestedSendStep) => updateNanoPart(part.id, { suggestedSendStep })} helper="Exempel: Dag 1, Vecka 2, Efter modul 1." />
+                  <div className="md:col-span-2">
+                    <Field label="Kort innehåll" value={part.body} onChange={(body) => updateNanoPart(part.id, { body })} textarea />
+                  </div>
+                  <Field label="Call to action" value={part.cta} onChange={(cta) => updateNanoPart(part.id, { cta })} />
+                  <Field label="Påminnelsetext" value={part.reminderText} onChange={(reminderText) => updateNanoPart(part.id, { reminderText })} />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {activeSection === 'email' && (
+          <div className="space-y-5">
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              Förberett utkast, ej skickat. Den här versionen sparar mottagargrupper och mejltext lokalt med kursen.
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <Field
+                label="Ämnesradsmall"
+                value={emailDraft.subjectTemplate}
+                onChange={(subjectTemplate) => updateEmailDraft({ subjectTemplate })}
+                helper="Du kan använda {{nanoSubject}}."
+              />
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
+                <p className="font-bold text-slate-700 mb-1">Status</p>
+                <p>Draft. Inga mejl skickas från prototypen.</p>
+              </div>
+              <div className="md:col-span-2">
+                <Field label="Introtext" value={emailDraft.introText} onChange={(introText) => updateEmailDraft({ introText })} textarea />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between border-t border-slate-200 pt-4">
+              <p className="text-sm font-black text-slate-700">Mottagargrupper</p>
+              <button onClick={addRecipientGroup} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50">
+                <i className="fa-solid fa-plus mr-2"></i>Lägg till grupp
+              </button>
+            </div>
+
+            {emailDraft.recipientGroups.map((group) => (
+              <div key={group.id} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <StatusPill tone={group.emails.every((email) => !email.trim() || emailPattern.test(email.trim())) ? 'ok' : 'warn'}>
+                    {group.emails.filter((email) => email.trim()).length} adresser
+                  </StatusPill>
+                  <button onClick={() => deleteRecipientGroup(group.id)} className="rounded-md border border-red-100 bg-white px-2.5 py-1.5 text-xs font-bold text-red-600">
+                    Ta bort
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <Field label="Gruppnamn" value={group.label} onChange={(label) => updateRecipientGroup(group.id, { label })} />
+                  <label className="block space-y-1.5">
+                    <span className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Rollkoppling</span>
+                    <select
+                      value={group.roleId || ''}
+                      onChange={(event) => updateRecipientGroup(group.id, { roleId: event.target.value || undefined })}
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    >
+                      <option value="">Ingen särskild roll</option>
+                      {course.roles.map((role) => (
+                        <option key={role.id} value={role.id}>{role.title}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <div className="md:col-span-2">
+                    <Field
+                      label="Mejladresser"
+                      value={group.emails.join('\n')}
+                      onChange={(value) => updateRecipientGroup(group.id, { emails: value.split(/\n|,|;/).map((email) => email.trim()).filter(Boolean) })}
+                      textarea
+                      helper="En adress per rad, eller separera med komma/semikolon."
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            <div className="rounded-lg border border-slate-200 bg-white p-4">
+              <p className="text-[11px] font-black uppercase tracking-widest text-slate-500 mb-2">Förhandsvisning</p>
+              <p className="text-sm font-bold text-slate-800">{emailDraft.subjectTemplate.replace('{{nanoSubject}}', course.nanoCourse?.[0]?.subject || 'Nanokurs')}</p>
+              <p className="mt-2 whitespace-pre-line text-sm text-slate-600">{emailDraft.introText}</p>
+              {course.nanoCourse?.[0] && (
+                <div className="mt-3 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
+                  <p className="font-bold">{course.nanoCourse[0].subject}</p>
+                  <p className="mt-1">{course.nanoCourse[0].body}</p>
+                  <p className="mt-2 font-bold text-blue-700">{course.nanoCourse[0].cta}</p>
+                </div>
+              )}
+            </div>
           </div>
         )}
 

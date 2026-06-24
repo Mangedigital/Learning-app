@@ -1,5 +1,5 @@
 import { DEFAULT_COURSE } from '../constants';
-import { CourseRole, MicroCourse } from '../types';
+import { CourseRole, CourseRoleCount, EmailCampaignDraft, MicroCourse, NanoCoursePart } from '../types';
 
 const COURSES_KEY = 'microlearning_courses';
 
@@ -47,12 +47,47 @@ const toCourseRole = (role: CourseRole | string, index: number): CourseRole => {
   };
 };
 
+const clampRoleCount = (count: number): CourseRoleCount => {
+  if (count <= 1) return 1;
+  if (count === 2) return 2;
+  if (count === 3) return 3;
+  return 4;
+};
+
+const createDefaultNanoPart = (role: CourseRole): NanoCoursePart => ({
+  id: `${role.id}-nano-1`,
+  roleId: role.id,
+  subject: `Nanokurs för ${role.title}`,
+  body: `Kort lärdel för ${role.title}.`,
+  cta: 'Öppna mikrokursen och gör nästa moment.',
+  suggestedSendStep: 'Dag 1',
+  reminderText: 'Påminnelse: fortsätt med mikrokursen när du har några minuter.',
+});
+
+const normalizeEmailDraft = (course: any, roles: CourseRole[]): EmailCampaignDraft => {
+  const draft = course.emailCampaignDraft || {};
+  return {
+    status: 'draft',
+    subjectTemplate: typeof draft.subjectTemplate === 'string' ? draft.subjectTemplate : '{{nanoSubject}}',
+    introText: typeof draft.introText === 'string' ? draft.introText : `Hej! Här kommer en kort nanokurs från ${course.title || 'mikrokursen'}.`,
+    recipientGroups: Array.isArray(draft.recipientGroups)
+      ? draft.recipientGroups.map((group: any, index: number) => ({
+        id: typeof group.id === 'string' ? group.id : `group-${index + 1}`,
+        label: typeof group.label === 'string' ? group.label : `Mottagargrupp ${index + 1}`,
+        roleId: typeof group.roleId === 'string' ? group.roleId : roles[index % Math.max(roles.length, 1)]?.id,
+        emails: Array.isArray(group.emails) ? group.emails.filter((email: unknown): email is string => typeof email === 'string') : [],
+      }))
+      : [],
+  };
+};
+
 const normalizeCourse = (course: MicroCourse): MicroCourse => {
   const legacy = course as any;
-  const roles = (Array.isArray(legacy.roles) ? legacy.roles : []).map(toCourseRole).slice(0, 3);
+  const roles = (Array.isArray(legacy.roles) ? legacy.roles : []).map(toCourseRole).slice(0, 4);
   const roleIdByTitle = new Map(roles.map((role) => [role.title, role.id]));
+  const validRoleIds = new Set(roles.map((role) => role.id));
   const moduleRoleIds = (metadata: any) => {
-    if (Array.isArray(metadata?.roleIds)) return metadata.roleIds;
+    if (Array.isArray(metadata?.roleIds)) return metadata.roleIds.filter((id: unknown): id is string => typeof id === 'string' && validRoleIds.has(id));
     const legacyRoles = metadata?.["role"];
     if (Array.isArray(legacyRoles)) {
       return legacyRoles.map((role: string) => roleIdByTitle.get(role) || slugify(role));
@@ -62,7 +97,8 @@ const normalizeCourse = (course: MicroCourse): MicroCourse => {
 
   return {
     ...course,
-    roles: roles.length ? roles : course.roles,
+    roles,
+    roleCount: clampRoleCount(roles.length || legacy.roleCount || course.roles?.length || 1),
     modules: (Array.isArray(course.modules) ? course.modules : []).map((module) => ({
       ...module,
       metadata: {
@@ -81,6 +117,18 @@ const normalizeCourse = (course: MicroCourse): MicroCourse => {
       ...question,
       roleId: (question as any).roleId || roleIdByTitle.get((question as any).role) || slugify((question as any).role || roles[0]?.title || 'roll'),
     })),
+    nanoCourse: Array.isArray(legacy.nanoCourse) && legacy.nanoCourse.length
+      ? legacy.nanoCourse.map((part: any, index: number) => ({
+        id: typeof part.id === 'string' ? part.id : `nano-${index + 1}`,
+        roleId: typeof part.roleId === 'string' ? part.roleId : roles[index % Math.max(roles.length, 1)]?.id || 'roll',
+        subject: typeof part.subject === 'string' ? part.subject : 'Nanokurs',
+        body: typeof part.body === 'string' ? part.body : '',
+        cta: typeof part.cta === 'string' ? part.cta : '',
+        suggestedSendStep: typeof part.suggestedSendStep === 'string' ? part.suggestedSendStep : 'Dag 1',
+        reminderText: typeof part.reminderText === 'string' ? part.reminderText : '',
+      }))
+      : roles.map(createDefaultNanoPart),
+    emailCampaignDraft: normalizeEmailDraft(legacy, roles),
   };
 };
 

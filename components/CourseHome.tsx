@@ -25,6 +25,7 @@ export const CourseHome: React.FC<{
 }> = ({ courses, onSelectCourse, onPublishCourse }) => {
   const [sourceTitle, setSourceTitle] = useState('');
   const [file, setFile] = useState<File | null>(null);
+  const [roleCount, setRoleCount] = useState(3);
   const [draftCourse, setDraftCourse] = useState<MicroCourse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -45,7 +46,7 @@ export const CourseHome: React.FC<{
     setProgressEvents([]);
 
     try {
-      const draft = await generateCourseFromSource(file, sourceTitle.trim() || file.name, (progressEvent) => {
+      const draft = await generateCourseFromSource(file, sourceTitle.trim() || file.name, roleCount, (progressEvent) => {
         setProgressEvents((events) => [...events, progressEvent]);
       });
       setDraftCourse(draft);
@@ -121,13 +122,25 @@ export const CourseHome: React.FC<{
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
           <input
             value={sourceTitle}
             onChange={(event) => setSourceTitle(event.target.value)}
             placeholder="Källtitel"
             className="md:col-span-1 bg-white/10 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-300"
           />
+          <label className="bg-white/10 border border-white/10 rounded-xl px-4 py-2.5 text-sm">
+            <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Antal roller</span>
+            <select
+              value={roleCount}
+              onChange={(event) => setRoleCount(Number(event.target.value))}
+              className="w-full bg-transparent text-white outline-none"
+            >
+              {[1, 2, 3, 4].map((count) => (
+                <option key={count} value={count} className="text-slate-900">{count}</option>
+              ))}
+            </select>
+          </label>
           <input
             type="file"
             accept={SUPPORTED_SOURCE_ACCEPT}
