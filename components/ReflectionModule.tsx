@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { UserRole } from '../types';
 import { ROLE_SCENARIOS } from '../constants';
-import { getReflectionFeedback } from '../services/geminiService';
+import { getReflectionFeedback } from '../services/reflectionService';
 
 export const ReflectionModule: React.FC<{ role: UserRole; onComplete: (text: string) => void }> = ({ role, onComplete }) => {
   const [reflection, setReflection] = useState('');
@@ -12,11 +12,14 @@ export const ReflectionModule: React.FC<{ role: UserRole; onComplete: (text: str
   const scenario = ROLE_SCENARIOS[role] || ROLE_SCENARIOS[UserRole.MANAGER];
 
   const handleSubmit = async () => {
-    if (!reflection.trim()) return;
+    if (!reflection.trim() || loading) return;
     setLoading(true);
-    const fb = await getReflectionFeedback(reflection, role);
-    setFeedback(fb);
-    setLoading(false);
+    try {
+      const fb = await getReflectionFeedback(reflection, role);
+      setFeedback(fb);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

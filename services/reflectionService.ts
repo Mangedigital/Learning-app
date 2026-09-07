@@ -1,7 +1,6 @@
-
 export const getReflectionFeedback = async (reflection: string, role: string): Promise<string> => {
   try {
-    const response = await fetch('/api/gemini-proxy', {
+    const response = await fetch('/api/reflection', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ reflection, role }),
@@ -15,7 +14,7 @@ export const getReflectionFeedback = async (reflection: string, role: string): P
     const data = await response.json();
     return data.text || "Kunde inte generera feedback just nu.";
   } catch (error) {
-    console.error("Gemini Proxy Error:", error);
+    console.error("Reflection Proxy Error:", error);
     return "Ett fel uppstod vid hämtning av feedback. Fortsätt med din egen reflektion.";
   }
 };
