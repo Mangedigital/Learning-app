@@ -1,4 +1,3 @@
-
 import { GoldenRule, UserRole, CourseLevel, CourseModule, QuizQuestion, MatchingScenario } from './types';
 
 export const GOLDEN_RULES: GoldenRule[] = [
@@ -7,7 +6,7 @@ export const GOLDEN_RULES: GoldenRule[] = [
   { id: 3, title: 'Förbjudna system', content: 'Det finns särskilda krav på AI-användning som innebär höga risker och en del AI-system är helt förbjudna.' },
   { id: 4, title: 'Sekretess', content: 'Du ansvarar för att sekretessuppgifter och skyddsvärd information inte röjs för obehöriga. Detta gäller särskilt personuppgifter.', criticalForHR: true },
   { id: 5, title: 'Personuppgifter (GDPR)', content: 'Du får bara behandla personuppgifter om det sker i enlighet med dataskyddslagstiftningen.', criticalForHR: true },
-  { id: 6, title: 'Mänsklig kontroll', content: 'Vid rekrytering och förändringsledning måste du alltid granska AI-genererade förslag. Du äger beslutet, inte tekniken.', criticalForHR: true },
+  { id: 6, title: 'Mänsklig kontroll', content: 'Du ansvarar för att granska AI-genererade resultat innan de används i ditt arbete. AI kan vara ett stöd, men det är människan som ansvarar för bedömningen och beslutet.', criticalForHR: true },
   { id: 7, title: 'Transparens', content: 'Vi ska kunna förklara för sökande och politiker hur vi använder AI i våra processer.' },
   { id: 8, title: 'Allmänna handlingar', content: 'Information du lägger in i systemet och resultat som du får ut kan bli allmänna handlingar som omfattas av offentlighetsprincipen.' },
   { id: 9, title: 'Upphovsrätt', content: 'Du ansvarar för att upphovsrätten respekteras när du använder ett AI-system.' },
@@ -18,16 +17,16 @@ export const MATCHING_SCENARIOS: MatchingScenario[] = [
   {
     id: 'hr1',
     role: UserRole.HR,
-    text: "Case 1: CV-analys i publik chatt. Du vill snabba på urvalet genom att låta AI sammanfatta kandidaternas personliga brev och CV:n i en publik chatt.",
+    text: "CV-analys i publik AI-tjänst. Du vill snabba på urvalet genom att låta AI sammanfatta kandidaternas CV:n och personliga brev i en publik AI-tjänst.",
     correctRuleId: 5,
-    explanation: "Personuppgifter: CV:n innehåller personuppgifter som aldrig får matas in i publika system. [Källa: Att använda AI i Göteborgs Stad]",
+    explanation: "Personuppgifter: CV och personliga brev innehåller omfattande personuppgifter. Innan sådan information används i ett AI-system måste systemet vara godkänt för behandlingen och dataskyddskraven vara uppfyllda.",
     sourceQuote: "Källa: Att använda AI i Göteborgs Stad",
-    clue: "Personuppgifter (GDPR): CV:n innehåller personuppgifter som aldrig får matas in i publika system.",
-    socraticQuestion: "Om du ändå vill använda AI för att analysera kravprofilen – hur kan du göra det utan att mata in personuppgifter?",
+    clue: "Personuppgifter (GDPR): Vilken information om kandidaten lämnar stadens kontroll när dokumentet skickas till AI-tjänsten?",
+    socraticQuestion: "Om du ändå vill använda AI för att analysera kravprofilen – hur kan du göra det utan att föra över personuppgifter?",
     options: [1, 2, 4, 5],
     nudge: {
       title: "🔍 Vill du förstå varför?",
-      content: "Kärnproblemet: Det räcker sällan att bara radera namnet. Det kallas för \"indirekta personuppgifter\". En unik kombination av tidigare arbetsplatser, utbildningsår och specifika projekt kan enkelt kopplas ihop med en person via t.ex. LinkedIn.\n\nKom ihåg: Regel 5 kräver att vi har laglig grund för all hantering av personuppgifter. Publika AI-tjänster saknar de avtal som krävs för detta.\n\nKärnbudskap: Personlig integritet går före effektivitet."
+      content: "CV:n innehåller ofta indirekta personuppgifter. Även om du tar bort namnet kan kombinationen av tidigare arbetsplatser, utbildningsår och specifika projekt göra personen identifierbar, till exempel via LinkedIn.\n\nFör att hantera personuppgifter i en AI-tjänst behöver systemet vara godkänt för ändamålet och det måste finnas rättslig grund. Många publika tjänster uppfyller inte dessa krav.\n\nKärnbudskap: Skydda personlig integritet genom att välja rätt system och undvik att föra över identifierande information."
     }
   },
   {
@@ -50,46 +49,46 @@ export const MATCHING_SCENARIOS: MatchingScenario[] = [
   {
     id: 'utv1',
     role: UserRole.DEV_LEAD,
-    text: "Case 1: Forskningssammanfattning. Du använder AI för att sammanfatta rapporter. En föräldraförening begär ut att få se hela din konversation.",
+    text: "Forskningssammanfattning. Du använder AI för att sammanfatta flera rapporter inför ett beslutsunderlag. När en kollega frågar hur slutsatserna har tagits fram inser du att det inte framgår någonstans att AI har använts.",
     correctRuleId: 7,
-    explanation: "Logik: Allmänhetens rätt till insyn gäller även AI-dialoger. Enligt källan ska vi kunna redovisa att och hur AI använts. Loggfiler och chattar kan utgöra allmän handling. [Källa: Att använda AI i Göteborgs Stad]",
+    explanation: "Transparens: När AI används som stöd i ett underlag behöver du kunna beskriva hur verktyget har använts och hur resultatet har granskats.",
     sourceQuote: "Källa: Att använda AI i Göteborgs Stad",
-    clue: "Transparens: Allmänhetens rätt till insyn gäller även AI-dialoger och loggfiler.",
-    socraticQuestion: "Om du vet att din dialog kan granskas – hur påverkar det kvaliteten i dina prompter?",
+    clue: "Transparens: Kan du förklara vilken roll AI hade i arbetet och vad du själv har kontrollerat?",
+    socraticQuestion: "Vad behöver du dokumentera för att någon annan ska kunna förstå hur AI bidrog till underlaget?",
     options: [4, 7, 8, 9],
     nudge: {
       title: "🔍 Vill du förstå varför?",
-      content: "När du använder AI i tjänsten omfattas dina instruktioner (prompts) och AI:ns svar av offentlighetsprincipen om de har betydelse för ett ärende eller beslut. Regel 7 poängterar att vi ska främja tillit genom öppenhet. Spara därför relevanta konversationer om de ligger till grund för ditt arbete – de kan begäras ut som allmän handling.\n\nKärnbudskap: Din chatt är stadens minne."
+      content: "Regel 7 handlar om öppenhet och spårbarhet. När AI har bidragit till ett underlag behöver mottagaren kunna förstå vad verktyget gjorde, vilka källor som användes och vad du själv har granskat eller kompletterat.\n\nGör det tydligt i underlaget hur AI har använts och spara gärna anteckningar om prompts och granskning så att arbetet kan följas upp i efterhand.\n\nKärnbudskap: Transparens skapar tillit – berätta hur AI har bidragit."
     }
   },
   {
     id: 'utv2',
     role: UserRole.DEV_LEAD,
-    text: "Case 2: AI-bild i material. Du genererar en bild för en broschyr men råkar få med en felaktig logotyp.",
+    text: "AI-bild i material. Du tar fram en bild med AI till en broschyr. När du granskar bilden upptäcker du att den innehåller en felaktig symbol som liknar stadens logotyp.",
     correctRuleId: 9,
-    explanation: "Logik: Du ansvarar för att materialet följer grafisk profil. Källan \"Så jobbar du med AI\" förbjuder manipulering av logotyper och kräver märkning av AI-bilder. [Källa: Att använda AI i Göteborgs Stad]",
+    explanation: "Upphovsrätt och granskning: AI-genererat bildmaterial behöver alltid granskas innan användning. Kontrollera att bilden inte innehåller felaktiga symboler, logotyper eller upphovsrättsskyddat innehåll och att mottagaren inte vilseleds.",
     sourceQuote: "Källa: Att använda AI i Göteborgs Stad",
-    clue: "Upphovsrätt & varumärke: Du ansvarar för att materialet följer grafisk profil.",
-    socraticQuestion: "Varför är det viktigt att vi är tydliga med vad som är en riktig miljö och vad som är skapat av AI?",
+    clue: "Upphovsrätt: Har du granskat att bilden inte innehåller felaktiga symboler eller material som kräver rättigheter?",
+    socraticQuestion: "Vad behöver du kontrollera och tydliggöra innan en AI-genererad bild används i stadens material?",
     options: [2, 7, 8, 9],
     nudge: {
       title: "🔍 Vill du förstå varför?",
-      content: "Stadens grafiska profil är bärare av vårt förtroende. Enligt dokumentet \"Så jobbar du med AI-genererad bild\" ska AI-bilder alltid granskas så att de inte innehåller felaktiga symboler eller logotyper. Dessutom ska AI-genererade bilder märkas tydligt för att inte vilseleda mottagaren.\n\nKärnbudskap: Trovärdighet kräver märkning."
+      content: "AI-bilder kan se övertygande ut men innehålla felaktiga detaljer som logotyper eller varumärken. Du ansvarar för att materialet är korrekt och följer stadens grafiska profil.\n\nGranska alltid bilden noga, säkerställ att upphovsrätten respekteras och var tydlig mot mottagaren när bilden är AI-genererad så att ingen vilseleds.\n\nKärnbudskap: Granskning och tydlighet skyddar trovärdigheten."
     }
   },
   {
     id: 'utv3',
     role: UserRole.DEV_LEAD,
-    text: "Case 3: Plan för högindex. Du planerar insatser. AI föreslår att ni drar ner på språket för att fokusera på 'enklare färdigheter'.",
-    correctRuleId: 3,
-    explanation: "Logik: AI-förslag som rör resursfördelning eller pedagogiska strategier i prioriterade områden är högrisk. Mänsklig tillsyn krävs (Regel 1 & 3). [Källa: Att använda AI i Göteborgs Stad]",
+    text: "Prioritering av utvecklingsinsatser. Du ber AI hjälpa dig analysera verksamhetsdata och föreslå vilka förskolor som bör få extra stöd. När du granskar förslaget ser du att några förskolor med stora behov får låg prioritet, men det framgår inte varför.",
+    correctRuleId: 6,
+    explanation: "Mänsklig kontroll: AI kan bidra med analys, men du behöver själv granska vilka antaganden och underlag som ligger bakom förslaget innan det används i planeringen.",
     sourceQuote: "Källa: Att använda AI i Göteborgs Stad",
-    clue: "Högriskområden: AI-förslag som rör resursfördelning kräver särskild kontroll.",
-    socraticQuestion: "Om AI:ns förslag bygger på bias – hur säkerställer du att din planering bidrar till en mer jämlik stad?",
-    options: [1, 3, 5, 7],
+    clue: "Mänsklig kontroll: Ett AI-förslag blir inte automatiskt ett bra beslutsunderlag.",
+    socraticQuestion: "Vad skulle du vilja kontrollera innan du använder AI-förslaget för att prioritera insatser?",
+    options: [1, 3, 6, 7],
     nudge: {
       title: "🔍 Vill du förstå varför?",
-      content: "AI tenderar att förenkla och kan föreslå sänkta ambitioner baserat på statistiska mönster i sin träningsdata (bias). Regel 3 (Högrisk) kräver att du som expert always gör den slutgiltiga bedömningen. AI får aldrig diktera den pedagogiska riktningen.\n\nKärnbudskap: Tekniken stöttar visionen, den styr den inte."
+      content: "AI kan hitta mönster i data men förklarar inte alltid vilka antaganden som ligger bakom ett förslag. Om träningsdata innehåller skevheter kan förslaget spegla dem utan att det syns.\n\nEnligt Regel 6 behöver du granska underlaget, ställa frågor om hur slutsatsen togs fram och säkerställa att prioriteringen vilar på begriplig och rättvis grund innan du går vidare.\n\nKärnbudskap: Låt AI stödja analysen, men behåll den mänskliga bedömningen."
     }
   },
 
@@ -112,16 +111,16 @@ export const MATCHING_SCENARIOS: MatchingScenario[] = [
   {
     id: 'manager2',
     role: UserRole.MANAGER,
-    text: "Case 2: Struktur för APT (Arbetsplatsträff)\nDu vill effektivisera planeringen av enhetens APT och ber en medarbetare ta fram en diskussionsstruktur kring \"framtidens kompetensförsörjning i förskolan\" med hjälp av AI. Medarbetaren matar in data från StratSys för att få en korrekt nulägesbild av förskolornas behov.\n\nFråga: Vilken regel riskerar att brytas här och vad är ditt ansvar som chef?",
+    text: "Struktur för APT. En medarbetare använder en publik AI-tjänst för att förbereda en diskussion om kompetensförsörjning. För att få bättre förslag klistrar hen in uppgifter från StratSys som innehåller information om bemanning, sjukfrånvaro och behov på enskilda förskolor.\n\nFråga: Vad behöver du som chef reagera på?",
     correctRuleId: 4,
-    explanation: "Regel 4 (Sekretess) & Regel 5 (Personuppgifter). Du som chef måste sätta ramarna för vad som får matas in i AI-systemen. Behov på namngivna förskolor ska med stor försiktighet användas i publika AI-verktyg. Ditt ansvar är att skapa rutiner som skyddar känslig information. [Källa: Att använda AI i Göteborgs Stad]",
+    explanation: "Sekretess och skyddsvärd information: Innan verksamhetsinformation förs över till en extern AI-tjänst måste du veta att systemet är godkänt för den typen av information.",
     sourceQuote: "Källa: Att använda AI i Göteborgs Stad",
-    clue: "Sekretess: Du ansvarar för att sekretessuppgifter och skyddsvärd information inte röjs.",
-    socraticQuestion: "Om medarbetaren anonymiserar namnen på förskolorna, räcker det då för att uppfylla Regel 4?",
+    clue: "Sekretess: Fundera på vilken information som lämnar stadens miljö när den klistras in i AI-tjänsten.",
+    socraticQuestion: "Hur skulle medarbetaren kunna få hjälp av AI utan att föra över verksamhetsinformation som inte hör hemma i tjänsten?",
     options: [2, 4, 5, 8],
     nudge: {
       title: "Vill du veta varför?",
-      content: "Fördjupning: När vi använder publika AI-tjänster skickas informationen utanför stadens nätverk. Även om du anonymiserar namn kan unika händelser (indirekta personuppgifter) röjas. Regel 4 och 5 skyddar inte bara individen, utan även stadens rykte som en trygg arbetsgivare. Som chef sätter du kulturen: Vi matar aldrig in sådant vi inte skulle vilja se på en löpsedel.\n\nKärna: HR-data kräver högsta skyddsnivå; publika AI-verktyg saknar detta skydd."
+      content: "När uppgifter från interna system klistras in i en publik AI-tjänst lämnar informationen stadens kontrollerade miljö. Även sammanställd verksamhetsdata kan vara känslig om den går att koppla till specifika enheter eller förhållanden.\n\nSom chef behöver du tydliggöra vilka typer av information som får användas i vilka system och hänvisa till godkända alternativ. Behöver AI användas, bör det ske med avidentifierat eller mer generellt underlag.\n\nKärna: Säkerställ att verksamhetsinformation hanteras i rätt system."
     }
   },
   {
@@ -157,16 +156,16 @@ export const MATCHING_SCENARIOS: MatchingScenario[] = [
   {
     id: 'manager5',
     role: UserRole.MANAGER,
-    text: "Case 5: Kommunikation på enhetsmötet\nDu märker att stämningen på enheten är lite orolig kring AI – vissa är rädda att deras arbetsuppgifter ska försvinna. Du vill använda AI för att skriva ett peppande manus till nästa enhetsmöte för att lugna personalen.\n\nFråga: Vad är viktigast att tänka på när du använder AI för att kommunicera som ledare?",
-    correctRuleId: 7,
-    explanation: "Regel 7: Transparens. För att behålla förtroendet bör du vara öppen med när du använder AI. Genom att berätta: \"Jag har tagit hjälp av AI för att strukturera mina tankar inför idag\", agerar du som en förebild och visar på en transparent och ansvarsfull användning i linje med stadens policy. [Källa: Att använda AI i Göteborgs Stad]",
+    text: "AI sammanfattar medarbetarnas synpunkter. Efter en workshop har du ett stort antal anonymiserade fritextsvar. Du låter AI sammanfatta vad medarbetarna tycker och använder sammanfattningen när du presenterar resultatet för gruppen. Några medarbetare känner inte igen sig i slutsatserna.\n\nFråga: Vad är viktigast att tänka på innan du presenterar AI:s sammanfattning som gruppens bild?",
+    correctRuleId: 6,
+    explanation: "Mänsklig kontroll: AI kan hjälpa dig hitta mönster, men du behöver kontrollera att sammanfattningen faktiskt representerar materialet och inte förstärker, tonar ned eller hittar på slutsatser.",
     sourceQuote: "Källa: Att använda AI i Göteborgs Stad",
-    clue: "Transparens: Vi ska kunna förklara för andra hur vi använder AI.",
-    socraticQuestion: "Kan för hög transparens (t.ex. att AI skrivit HELA talet) minska din auktoritet som ledare?",
-    options: [1, 7, 8, 9],
+    clue: "Mänsklig kontroll: AI:s sammanfattning är en tolkning av materialet, inte materialet självt.",
+    socraticQuestion: "Hur kan du använda AI:s sammanfattning utan att låta verktyget bli medarbetarnas röst?",
+    options: [1, 6, 7, 8],
     nudge: {
       title: "Vill du veta varför?",
-      content: "Fördjupning: Regel 7 om transparens handlar om att bygga en tillitskultur. Genom att vara öppen med att du använder AI avmystifierar du tekniken. Det visar att AI är ett komplement till ditt ledarskap, inte en ersättare. Det ger också dina medarbetare tryggheten att själva våga utforska verktygen under ordnade och öppna former.\n\nKärna: Ett modernt ledarskap kräver ärlighet om de verktyg vi använder."
+      content: "En AI-sammanfattning komprimerar materialet och kan oavsiktligt lyfta vissa mönster, tona ned nyanser eller lägga till formuleringar som inte fanns i underlaget.\n\nJämför därför alltid sammanfattningen med originalsvaren, kontrollera att nyanser finns kvar och var tydlig med att det är din tolkning med AI-stöd, inte automatiskt gruppens samlade röst.\n\nKärna: Granska att sammanfattningen är rättvisande innan du presenterar den."
     }
   }
 ];
